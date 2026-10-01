@@ -1,4 +1,4 @@
-jpackage com.sonj.silosmonitoreo
+package com.sonj.silosmonitoreo
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
