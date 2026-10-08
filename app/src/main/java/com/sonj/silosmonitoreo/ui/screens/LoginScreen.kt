@@ -1,7 +1,5 @@
 package com.sonj.silosmonitoreo.ui.screens
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -92,7 +90,7 @@ fun LoginScreen(
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = "Autenticación segura con Token JWT y SQLite",
+            text = "Ingresa tus datos para continuar",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -216,7 +214,7 @@ fun LoginScreen(
                 .fillMaxWidth()
                 .height(50.dp)
         ) {
-            Text(text = "Ingresar (Validar Token)")
+            Text(text = "Ingresar")
         }
 
         Spacer(modifier = Modifier.height(12.dp))
