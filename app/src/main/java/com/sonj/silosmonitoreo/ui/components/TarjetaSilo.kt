@@ -25,6 +25,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.sonj.silosmonitoreo.model.EstadoSilo
+import com.sonj.silosmonitoreo.model.RolUsuario
+import com.sonj.silosmonitoreo.model.Silo
 import com.sonj.silosmonitoreo.ui.theme.EstadoAdvertencia
 import com.sonj.silosmonitoreo.ui.theme.EstadoCritico
 import com.sonj.silosmonitoreo.ui.theme.EstadoNormal
@@ -37,13 +39,13 @@ fun colorDeEstado(estado: EstadoSilo): Color = when (estado) {
 
 @Composable
 fun TarjetaSilo(
-    nombre: String,
-    porcentaje: Int,
+    silo: Silo,
+    rol: RolUsuario = RolUsuario.OPERADOR,
     modifier: Modifier = Modifier
 ) {
-    val estado = EstadoSilo.desdePorcentaje(porcentaje.toFloat())
+    val estado = silo.estado
     val color = colorDeEstado(estado)
-    val fraccion = (porcentaje / 100f).coerceIn(0f, 1f)
+    val fraccion = (silo.porcentaje / 100f).coerceIn(0f, 1f)
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -56,12 +58,25 @@ fun TarjetaSilo(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = nombre,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Column {
+                    Text(
+                        text = silo.nombre,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Grano: ${silo.tipoGrano}" + if (rol == RolUsuario.ADMINISTRADOR) " • Capacidad: ${silo.capacidadToneladas} Tn" else "",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(color.copy(alpha = 0.15f))
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
                     Box(
                         modifier = Modifier
                             .size(8.dp)
@@ -71,30 +86,46 @@ fun TarjetaSilo(
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = estado.etiqueta,
-                        style = MaterialTheme.typography.labelMedium
+                        style = MaterialTheme.typography.labelMedium,
+                        color = color
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "$porcentaje %",
-                style = MaterialTheme.typography.headlineMedium
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(3.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-            ) {
+
+            // Exclusivo para ADMINISTRADOR: detalle del porcentaje numérico y la barra de llenado
+            if (rol == RolUsuario.ADMINISTRADOR) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    Text(
+                        text = "${silo.porcentaje}%",
+                        style = MaterialTheme.typography.headlineMedium
+                    )
+                    Text(
+                        text = "${(silo.porcentaje * silo.capacidadToneladas / 100)} / ${silo.capacidadToneladas} Tn",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Spacer(modifier = Modifier.height(10.dp))
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth(fraccion)
-                        .fillMaxHeight()
-                        .clip(RoundedCornerShape(3.dp))
-                        .background(color)
-                )
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(fraccion)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(color)
+                    )
+                }
             }
         }
     }

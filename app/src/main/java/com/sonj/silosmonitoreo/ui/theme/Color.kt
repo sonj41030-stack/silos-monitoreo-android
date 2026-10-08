@@ -8,7 +8,7 @@ val Superficie = Color(0xFFFFFFFF)
 val Texto = Color(0xFF111111)
 val TextoSecundario = Color(0xFF8A8A8A)
 val Pista = Color(0xFFEEEEEC)
-val Acento = Color(0xFFE8643C)
+val Acento = Color(0xFF6C63FF)
 
 // Modo oscuro
 val FondoOscuro = Color(0xFF111111)
