@@ -13,8 +13,10 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.sonj.silosmonitoreo.data.auth.AuthRepository
 import com.sonj.silosmonitoreo.model.RolUsuario
 import com.sonj.silosmonitoreo.navigation.AppDestinations
+import com.sonj.silosmonitoreo.ui.screens.CrearCuentaScreen
 import com.sonj.silosmonitoreo.ui.screens.DashboardJefaturaScreen
 import com.sonj.silosmonitoreo.ui.screens.DetalleSiloScreen
 import com.sonj.silosmonitoreo.ui.screens.FormularioMovimientoScreen
@@ -39,18 +41,35 @@ class MainActivity : ComponentActivity() {
                         startDestination = AppDestinations.LOGIN,
                         modifier = Modifier.padding(innerPadding)
                     ) {
-                        // 1. LOGIN
+                        // 1. LOGIN (Con token y validación de correo por rol)
                         composable(AppDestinations.LOGIN) {
                             LoginScreen(
                                 onIngresar = { rol ->
                                     navController.navigate("${AppDestinations.LISTA_SILOS}/${rol.name}") {
                                         popUpTo(AppDestinations.LOGIN) { inclusive = true }
                                     }
+                                },
+                                onCrearCuentaClick = {
+                                    navController.navigate(AppDestinations.CREAR_CUENTA)
                                 }
                             )
                         }
 
-                        // 2. SELECCION DE ROL
+                        // 2. CREAR CUENTA (Con validación de mayoría de edad >= 18 años y correo único)
+                        composable(AppDestinations.CREAR_CUENTA) {
+                            CrearCuentaScreen(
+                                onCuentaCreada = { rol ->
+                                    navController.navigate("${AppDestinations.LISTA_SILOS}/${rol.name}") {
+                                        popUpTo(AppDestinations.LOGIN) { inclusive = true }
+                                    }
+                                },
+                                onVolverLogin = {
+                                    navController.popBackStack()
+                                }
+                            )
+                        }
+
+                        // 3. SELECCION DE ROL
                         composable(
                             route = "${AppDestinations.SELECCION_ROL}/{rolInicial}",
                             arguments = listOf(navArgument("rolInicial") { type = NavType.StringType })
@@ -70,7 +89,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // 3. LISTA DE GRANJAS Y SILOS
+                        // 4. LISTA DE GRANJAS Y SILOS
                         composable(
                             route = "${AppDestinations.LISTA_SILOS}/{rolName}",
                             arguments = listOf(navArgument("rolName") { type = NavType.StringType })
@@ -98,6 +117,7 @@ class MainActivity : ComponentActivity() {
                                     navController.navigate("${AppDestinations.SELECCION_ROL}/${rol.name}")
                                 },
                                 onCerrarSesion = {
+                                    AuthRepository.cerrarSesion()
                                     navController.navigate(AppDestinations.LOGIN) {
                                         popUpTo(0) { inclusive = true }
                                     }
@@ -105,7 +125,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // 4. DETALLE DE SILO
+                        // 5. DETALLE DE SILO
                         composable(
                             route = "${AppDestinations.DETALLE_SILO}/{siloId}/{rolName}",
                             arguments = listOf(
@@ -129,7 +149,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // 5. REGISTRO DE MOVIMIENTO
+                        // 6. REGISTRO DE MOVIMIENTO
                         composable(
                             route = "${AppDestinations.REGISTRO_MOVIMIENTO}?siloId={siloId}",
                             arguments = listOf(navArgument("siloId") {
@@ -145,7 +165,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // 6. HISTORIAL DE MOVIMIENTOS
+                        // 7. HISTORIAL DE MOVIMIENTOS
                         composable(
                             route = "${AppDestinations.HISTORIAL_MOVIMIENTOS}?siloId={siloId}",
                             arguments = listOf(navArgument("siloId") {
@@ -160,7 +180,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // 7. PANTALLA DE ALERTAS
+                        // 8. PANTALLA DE ALERTAS
                         composable(AppDestinations.PANTALLA_ALERTAS) {
                             PantallaAlertasScreen(
                                 onVolver = { navController.popBackStack() },
@@ -170,7 +190,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // 8. DASHBOARD JEFATURA
+                        // 9. DASHBOARD JEFATURA
                         composable(AppDestinations.DASHBOARD_JEFATURA) {
                             DashboardJefaturaScreen(
                                 onVolver = { navController.popBackStack() }
