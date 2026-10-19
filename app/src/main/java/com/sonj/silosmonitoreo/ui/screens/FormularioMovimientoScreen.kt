@@ -1,5 +1,12 @@
 package com.sonj.silosmonitoreo.ui.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -7,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -15,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -22,6 +31,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -34,8 +44,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.sonj.silosmonitoreo.data.SilosRepository
 import com.sonj.silosmonitoreo.model.TipoMovimiento
 
@@ -46,6 +61,8 @@ fun FormularioMovimientoScreen(
     onVolver: () -> Unit,
     onMovimientoGuardado: () -> Unit
 ) {
+    val context = LocalContext.current
+
     val todosLosSilos = SilosRepository.granjas.flatMap { granja ->
         granja.silos.map { silo -> Pair(granja.nombre, silo) }
     }
@@ -58,6 +75,46 @@ fun FormularioMovimientoScreen(
     var responsableText by remember { mutableStateOf("") }
     var notasText by remember { mutableStateOf("") }
     var mensajeError by remember { mutableStateOf<String?>(null) }
+
+    // --- CAMARA (recurso nativo) ---
+    var fotoEvidencia by remember { mutableStateOf<Bitmap?>(null) }
+    var mensajePermiso by remember { mutableStateOf<String?>(null) }
+
+    // 1) Lanzador que abre la camara y devuelve la foto como Bitmap
+    val lanzadorCamara = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap ->
+        if (bitmap != null) {
+            fotoEvidencia = bitmap
+            mensajePermiso = null
+        }
+    }
+
+    // 2) Lanzador que pide el permiso de camara al usuario
+    val lanzadorPermiso = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { concedido ->
+        if (concedido) {
+            mensajePermiso = null
+            lanzadorCamara.launch(null)
+        } else {
+            mensajePermiso = "Permiso de cámara denegado. Actívalo en Ajustes para adjuntar fotos."
+        }
+    }
+
+    // 3) Si ya tiene permiso abre la camara; si no, lo pide
+    val tomarFoto = {
+        val permisoConcedido = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (permisoConcedido) {
+            lanzadorCamara.launch(null)
+        } else {
+            lanzadorPermiso.launch(Manifest.permission.CAMERA)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -183,6 +240,59 @@ fun FormularioMovimientoScreen(
                 shape = RoundedCornerShape(14.dp),
                 modifier = Modifier.fillMaxWidth()
             )
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Foto de evidencia (camara)
+            Text(
+                text = "Foto de evidencia (opcional):",
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.align(Alignment.Start)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (fotoEvidencia != null) {
+                Image(
+                    bitmap = fotoEvidencia!!.asImageBitmap(),
+                    contentDescription = "Foto de evidencia del movimiento",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(180.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .border(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.outline,
+                            shape = RoundedCornerShape(16.dp)
+                        )
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            OutlinedButton(
+                onClick = tomarFoto,
+                shape = RoundedCornerShape(50),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.PhotoCamera,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.size(8.dp))
+                Text(if (fotoEvidencia == null) "Tomar foto" else "Repetir foto")
+            }
+
+            if (mensajePermiso != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = mensajePermiso!!,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
 
             if (mensajeError != null) {
                 Spacer(modifier = Modifier.height(12.dp))

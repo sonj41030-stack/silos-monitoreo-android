@@ -14,7 +14,7 @@ class LocalDatabaseManager(context: Context) :
 
     companion object {
         private const val DATABASE_NAME = "silos_monitoreo.db"
-        private const val DATABASE_VERSION = 1
+        private const val DATABASE_VERSION = 2
 
         private const val TABLE_USUARIOS = "usuarios"
         private const val COLUMN_ID = "id"
