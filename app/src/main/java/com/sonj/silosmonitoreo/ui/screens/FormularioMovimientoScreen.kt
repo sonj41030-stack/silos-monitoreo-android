@@ -2,7 +2,6 @@ package com.sonj.silosmonitoreo.ui.screens
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -38,10 +37,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,58 +49,54 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import com.sonj.silosmonitoreo.data.SilosRepository
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sonj.silosmonitoreo.model.TipoMovimiento
+import com.sonj.silosmonitoreo.ui.viewmodel.FormularioMovimientoViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FormularioMovimientoScreen(
     siloIdInicial: String? = null,
     onVolver: () -> Unit,
-    onMovimientoGuardado: () -> Unit
+    onMovimientoGuardado: () -> Unit,
+    viewModel: FormularioMovimientoViewModel = viewModel()
 ) {
     val context = LocalContext.current
+    val estado by viewModel.uiState.collectAsState()
+    val todosLosSilos = viewModel.obtenerSilos()
 
-    val todosLosSilos = SilosRepository.granjas.flatMap { granja ->
-        granja.silos.map { silo -> Pair(granja.nombre, silo) }
+    // Al abrir la pantalla, el ViewModel deja seleccionado el silo inicial
+    LaunchedEffect(siloIdInicial) {
+        viewModel.inicializarSilo(siloIdInicial)
     }
 
-    var siloSeleccionadoId by remember {
-        mutableStateOf(siloIdInicial ?: todosLosSilos.firstOrNull()?.second?.id ?: "")
+    // Cuando el ViewModel avisa que el movimiento se guardó, volvemos atrás
+    LaunchedEffect(estado.movimientoGuardado) {
+        if (estado.movimientoGuardado) {
+            onMovimientoGuardado()
+        }
     }
-    var tipoMovimiento by remember { mutableStateOf(TipoMovimiento.ENTRADA) }
-    var cantidadText by remember { mutableStateOf("") }
-    var responsableText by remember { mutableStateOf("") }
-    var notasText by remember { mutableStateOf("") }
-    var mensajeError by remember { mutableStateOf<String?>(null) }
 
     // --- CAMARA (recurso nativo) ---
-    var fotoEvidencia by remember { mutableStateOf<Bitmap?>(null) }
-    var mensajePermiso by remember { mutableStateOf<String?>(null) }
-
-    // 1) Lanzador que abre la camara y devuelve la foto como Bitmap
     val lanzadorCamara = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicturePreview()
     ) { bitmap ->
         if (bitmap != null) {
-            fotoEvidencia = bitmap
-            mensajePermiso = null
+            viewModel.onFotoCapturada(bitmap)
         }
     }
 
-    // 2) Lanzador que pide el permiso de camara al usuario
     val lanzadorPermiso = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { concedido ->
         if (concedido) {
-            mensajePermiso = null
+            viewModel.onPermisoConcedido()
             lanzadorCamara.launch(null)
         } else {
-            mensajePermiso = "Permiso de cámara denegado. Actívalo en Ajustes para adjuntar fotos."
+            viewModel.onPermisoDenegado()
         }
     }
 
-    // 3) Si ya tiene permiso abre la camara; si no, lo pide
     val tomarFoto = {
         val permisoConcedido = ContextCompat.checkSelfPermission(
             context,
@@ -163,8 +157,8 @@ fun FormularioMovimientoScreen(
             ) {
                 todosLosSilos.forEach { (granjaNombre, silo) ->
                     FilterChip(
-                        selected = (silo.id == siloSeleccionadoId),
-                        onClick = { siloSeleccionadoId = silo.id },
+                        selected = (silo.id == estado.siloSeleccionadoId),
+                        onClick = { viewModel.onSiloSeleccionado(silo.id) },
                         label = { Text("$granjaNombre - ${silo.nombre} (${silo.tipoGrano})") },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -186,8 +180,8 @@ fun FormularioMovimientoScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 FilterChip(
-                    selected = (tipoMovimiento == TipoMovimiento.ENTRADA),
-                    onClick = { tipoMovimiento = TipoMovimiento.ENTRADA },
+                    selected = (estado.tipoMovimiento == TipoMovimiento.ENTRADA),
+                    onClick = { viewModel.onTipoCambiado(TipoMovimiento.ENTRADA) },
                     leadingIcon = { Icon(Icons.Default.ArrowDownward, contentDescription = null) },
                     label = { Text("Carga / Entrada") },
                     modifier = Modifier
@@ -195,8 +189,8 @@ fun FormularioMovimientoScreen(
                         .padding(end = 4.dp)
                 )
                 FilterChip(
-                    selected = (tipoMovimiento == TipoMovimiento.SALIDA),
-                    onClick = { tipoMovimiento = TipoMovimiento.SALIDA },
+                    selected = (estado.tipoMovimiento == TipoMovimiento.SALIDA),
+                    onClick = { viewModel.onTipoCambiado(TipoMovimiento.SALIDA) },
                     leadingIcon = { Icon(Icons.Default.ArrowUpward, contentDescription = null) },
                     label = { Text("Descarga / Salida") },
                     modifier = Modifier
@@ -209,8 +203,8 @@ fun FormularioMovimientoScreen(
 
             // Cantidad en Toneladas
             OutlinedTextField(
-                value = cantidadText,
-                onValueChange = { cantidadText = it; mensajeError = null },
+                value = estado.cantidad,
+                onValueChange = { viewModel.onCantidadCambiada(it) },
                 label = { Text("Cantidad (Toneladas)") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -222,8 +216,8 @@ fun FormularioMovimientoScreen(
 
             // Responsable
             OutlinedTextField(
-                value = responsableText,
-                onValueChange = { responsableText = it; mensajeError = null },
+                value = estado.responsable,
+                onValueChange = { viewModel.onResponsableCambiado(it) },
                 label = { Text("Nombre del Responsable / Operador") },
                 singleLine = true,
                 shape = RoundedCornerShape(14.dp),
@@ -234,8 +228,8 @@ fun FormularioMovimientoScreen(
 
             // Notas opcionales
             OutlinedTextField(
-                value = notasText,
-                onValueChange = { notasText = it },
+                value = estado.notas,
+                onValueChange = { viewModel.onNotasCambiadas(it) },
                 label = { Text("Notas / Observaciones") },
                 shape = RoundedCornerShape(14.dp),
                 modifier = Modifier.fillMaxWidth()
@@ -251,9 +245,9 @@ fun FormularioMovimientoScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
 
-            if (fotoEvidencia != null) {
+            if (estado.fotoEvidencia != null) {
                 Image(
-                    bitmap = fotoEvidencia!!.asImageBitmap(),
+                    bitmap = estado.fotoEvidencia!!.asImageBitmap(),
                     contentDescription = "Foto de evidencia del movimiento",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
@@ -282,22 +276,22 @@ fun FormularioMovimientoScreen(
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.size(8.dp))
-                Text(if (fotoEvidencia == null) "Tomar foto" else "Repetir foto")
+                Text(if (estado.fotoEvidencia == null) "Tomar foto" else "Repetir foto")
             }
 
-            if (mensajePermiso != null) {
+            if (estado.mensajePermiso != null) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = mensajePermiso!!,
+                    text = estado.mensajePermiso!!,
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall
                 )
             }
 
-            if (mensajeError != null) {
+            if (estado.mensajeError != null) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = mensajeError!!,
+                    text = estado.mensajeError!!,
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodyMedium
                 )
@@ -306,29 +300,7 @@ fun FormularioMovimientoScreen(
             Spacer(modifier = Modifier.height(28.dp))
 
             Button(
-                onClick = {
-                    val cantidad = cantidadText.toIntOrNull()
-                    if (siloSeleccionadoId.isBlank()) {
-                        mensajeError = "Por favor selecciona un silo."
-                    } else if (cantidad == null || cantidad <= 0) {
-                        mensajeError = "Por favor ingresa una cantidad válida en toneladas."
-                    } else if (responsableText.isBlank()) {
-                        mensajeError = "Por favor ingresa el nombre del responsable."
-                    } else {
-                        val exito = SilosRepository.registrarMovimiento(
-                            siloId = siloSeleccionadoId,
-                            tipo = tipoMovimiento,
-                            cantidadTn = cantidad,
-                            responsable = responsableText.trim(),
-                            notas = notasText.trim()
-                        )
-                        if (exito) {
-                            onMovimientoGuardado()
-                        } else {
-                            mensajeError = "Error al registrar el movimiento."
-                        }
-                    }
-                },
+                onClick = { viewModel.guardarMovimiento() },
                 shape = RoundedCornerShape(50),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.tertiary

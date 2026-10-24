@@ -1,6 +1,7 @@
 package com.sonj.silosmonitoreo.navigation
 
 object AppDestinations {
+    const val SPLASH = "splash"
     const val LOGIN = "login"
     const val CREAR_CUENTA = "crear_cuenta"
     const val SELECCION_ROL = "seleccion_rol"

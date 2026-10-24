@@ -25,6 +25,7 @@ import com.sonj.silosmonitoreo.ui.screens.ListaSilosScreen
 import com.sonj.silosmonitoreo.ui.screens.LoginScreen
 import com.sonj.silosmonitoreo.ui.screens.PantallaAlertasScreen
 import com.sonj.silosmonitoreo.ui.screens.SeleccionRolScreen
+import com.sonj.silosmonitoreo.ui.screens.SplashScreen
 import com.sonj.silosmonitoreo.ui.theme.SilosMonitoreoTheme
 
 class MainActivity : ComponentActivity() {
@@ -38,9 +39,20 @@ class MainActivity : ComponentActivity() {
 
                     NavHost(
                         navController = navController,
-                        startDestination = AppDestinations.LOGIN,
+                        startDestination = AppDestinations.SPLASH,
                         modifier = Modifier.padding(innerPadding)
                     ) {
+                        // 0. SPLASH (logo animado de inicio)
+                        composable(AppDestinations.SPLASH) {
+                            SplashScreen(
+                                onFinalizado = {
+                                    navController.navigate(AppDestinations.LOGIN) {
+                                        popUpTo(AppDestinations.SPLASH) { inclusive = true }
+                                    }
+                                }
+                            )
+                        }
+
                         // 1. LOGIN (Con token y validación de correo por rol)
                         composable(AppDestinations.LOGIN) {
                             LoginScreen(
