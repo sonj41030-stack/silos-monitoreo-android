@@ -1,0 +1,279 @@
+package com.sonj.silosmonitoreo
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Scaffold
+import androidx.compose.ui.Modifier
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.sonj.silosmonitoreo.data.SilosRepository
+import com.sonj.silosmonitoreo.data.auth.AuthRepository
+import com.sonj.silosmonitoreo.model.RolUsuario
+import com.sonj.silosmonitoreo.navigation.AppDestinations
+import com.sonj.silosmonitoreo.ui.screens.CrearCuentaScreen
+import com.sonj.silosmonitoreo.ui.screens.DashboardJefaturaScreen
+import com.sonj.silosmonitoreo.ui.screens.DetalleSiloScreen
+import com.sonj.silosmonitoreo.ui.screens.FormularioMovimientoScreen
+import com.sonj.silosmonitoreo.ui.screens.HistorialMovimientosScreen
+import com.sonj.silosmonitoreo.ui.screens.ListaSilosScreen
+import com.sonj.silosmonitoreo.ui.screens.LoginScreen
+import com.sonj.silosmonitoreo.ui.screens.PantallaAlertasScreen
+import com.sonj.silosmonitoreo.ui.screens.PerfilScreen
+import com.sonj.silosmonitoreo.ui.screens.ConfiguracionScreen
+import com.sonj.silosmonitoreo.ui.screens.ChatOperativoScreen
+import com.sonj.silosmonitoreo.ui.screens.SeleccionRolScreen
+import com.sonj.silosmonitoreo.ui.screens.SplashScreen
+import com.sonj.silosmonitoreo.ui.theme.SilosMonitoreoTheme
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+
+        // Carga los movimientos desde SQLite al iniciar la app (persistencia real)
+        SilosRepository.cargarMovimientosDesdeDB(applicationContext)
+
+        setContent {
+            SilosMonitoreoTheme {
+                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                    val navController = rememberNavController()
+
+                    NavHost(
+                        navController = navController,
+                        startDestination = AppDestinations.SPLASH,
+                        modifier = Modifier.padding(innerPadding)
+                    ) {
+                        // 0. SPLASH (logo animado de inicio)
+                        composable(AppDestinations.SPLASH) {
+                            SplashScreen(
+                                onFinalizado = {
+                                    navController.navigate(AppDestinations.LOGIN) {
+                                        popUpTo(AppDestinations.SPLASH) { inclusive = true }
+                                    }
+                                }
+                            )
+                        }
+
+                        // 1. LOGIN (Con token y validación de correo por rol)
+                        composable(AppDestinations.LOGIN) {
+                            LoginScreen(
+                                onIngresar = { rol ->
+                                    navController.navigate("${AppDestinations.LISTA_SILOS}/${rol.name}") {
+                                        popUpTo(AppDestinations.LOGIN) { inclusive = true }
+                                    }
+                                },
+                                onCrearCuentaClick = {
+                                    navController.navigate(AppDestinations.CREAR_CUENTA)
+                                }
+                            )
+                        }
+
+                        // 2. CREAR CUENTA (Con validación de mayoría de edad >= 18 años y correo único)
+                        composable(AppDestinations.CREAR_CUENTA) {
+                            CrearCuentaScreen(
+                                onCuentaCreada = { rol ->
+                                    navController.navigate("${AppDestinations.LISTA_SILOS}/${rol.name}") {
+                                        popUpTo(AppDestinations.LOGIN) { inclusive = true }
+                                    }
+                                },
+                                onVolverLogin = {
+                                    navController.popBackStack()
+                                }
+                            )
+                        }
+
+                        // 3. SELECCION DE ROL
+                        composable(
+                            route = "${AppDestinations.SELECCION_ROL}/{rolInicial}",
+                            arguments = listOf(navArgument("rolInicial") { type = NavType.StringType })
+                        ) { backStackEntry ->
+                            val rolInicialName = backStackEntry.arguments?.getString("rolInicial")
+                            val rolInicial = RolUsuario.entries.firstOrNull { it.name == rolInicialName } ?: RolUsuario.OPERADOR
+                            SeleccionRolScreen(
+                                rolInicial = rolInicial,
+                                onRolConfirmado = { rolConfirmado ->
+                                    navController.navigate("${AppDestinations.LISTA_SILOS}/${rolConfirmado.name}") {
+                                        popUpTo(AppDestinations.SELECCION_ROL) { inclusive = true }
+                                    }
+                                },
+                                onVolverLogin = {
+                                    navController.popBackStack()
+                                }
+                            )
+                        }
+
+                        // 4. LISTA DE GRANJAS Y SILOS
+                        composable(
+                            route = "${AppDestinations.LISTA_SILOS}/{rolName}",
+                            arguments = listOf(navArgument("rolName") { type = NavType.StringType })
+                        ) { backStackEntry ->
+                            val rolName = backStackEntry.arguments?.getString("rolName")
+                            val rol = RolUsuario.entries.firstOrNull { it.name == rolName } ?: RolUsuario.OPERADOR
+                            ListaSilosScreen(
+                                rol = rol,
+                                onSiloClick = { siloId ->
+                                    navController.navigate("${AppDestinations.DETALLE_SILO}/$siloId/${rol.name}")
+                                },
+                                onRegistrarMovimientoClick = {
+                                    navController.navigate(AppDestinations.REGISTRO_MOVIMIENTO)
+                                },
+                                onVerHistorialClick = {
+                                    navController.navigate(AppDestinations.HISTORIAL_MOVIMIENTOS)
+                                },
+                                onVerAlertasClick = {
+                                    navController.navigate(AppDestinations.PANTALLA_ALERTAS)
+                                },
+                                onVerDashboardJefaturaClick = {
+                                    navController.navigate(AppDestinations.DASHBOARD_JEFATURA)
+                                },
+                                onVerPerfilClick = {
+                                    navController.navigate("${AppDestinations.PERFIL}/${rol.name}")
+                                },
+                                onVerConfiguracionClick = {
+                                    navController.navigate("${AppDestinations.CONFIGURACION}/${rol.name}")
+                                },
+                                onVerChatClick = {
+                                    navController.navigate("${AppDestinations.CHAT_OPERATIVO}/${rol.name}")
+                                },
+                                onCambiarRol = {
+                                    navController.navigate("${AppDestinations.SELECCION_ROL}/${rol.name}")
+                                },
+                                onCerrarSesion = {
+                                    AuthRepository.cerrarSesion()
+                                    navController.navigate(AppDestinations.LOGIN) {
+                                        popUpTo(0) { inclusive = true }
+                                    }
+                                }
+                            )
+                        }
+
+                        // 5. DETALLE DE SILO
+                        composable(
+                            route = "${AppDestinations.DETALLE_SILO}/{siloId}/{rolName}",
+                            arguments = listOf(
+                                navArgument("siloId") { type = NavType.StringType },
+                                navArgument("rolName") { type = NavType.StringType }
+                            )
+                        ) { backStackEntry ->
+                            val siloId = backStackEntry.arguments?.getString("siloId") ?: ""
+                            val rolName = backStackEntry.arguments?.getString("rolName")
+                            val rol = RolUsuario.entries.firstOrNull { it.name == rolName } ?: RolUsuario.OPERADOR
+                            DetalleSiloScreen(
+                                siloId = siloId,
+                                rol = rol,
+                                onVolver = { navController.popBackStack() },
+                                onRegistrarMovimiento = { id ->
+                                    navController.navigate("${AppDestinations.REGISTRO_MOVIMIENTO}?siloId=$id")
+                                },
+                                onVerHistorialSilo = { id ->
+                                    navController.navigate("${AppDestinations.HISTORIAL_MOVIMIENTOS}?siloId=$id")
+                                }
+                            )
+                        }
+
+                        // 6. REGISTRO DE MOVIMIENTO
+                        composable(
+                            route = "${AppDestinations.REGISTRO_MOVIMIENTO}?siloId={siloId}",
+                            arguments = listOf(navArgument("siloId") {
+                                type = NavType.StringType
+                                nullable = true
+                            })
+                        ) { backStackEntry ->
+                            val siloId = backStackEntry.arguments?.getString("siloId")
+                            FormularioMovimientoScreen(
+                                siloIdInicial = siloId,
+                                onVolver = { navController.popBackStack() },
+                                onMovimientoGuardado = { navController.popBackStack() }
+                            )
+                        }
+
+                        // 7. HISTORIAL DE MOVIMIENTOS
+                        composable(
+                            route = "${AppDestinations.HISTORIAL_MOVIMIENTOS}?siloId={siloId}",
+                            arguments = listOf(navArgument("siloId") {
+                                type = NavType.StringType
+                                nullable = true
+                            })
+                        ) { backStackEntry ->
+                            val siloId = backStackEntry.arguments?.getString("siloId")
+                            HistorialMovimientosScreen(
+                                siloIdFiltro = siloId,
+                                onVolver = { navController.popBackStack() }
+                            )
+                        }
+
+                        // 8. PANTALLA DE ALERTAS
+                        composable(AppDestinations.PANTALLA_ALERTAS) {
+                            PantallaAlertasScreen(
+                                onVolver = { navController.popBackStack() },
+                                onVerSilo = { siloId ->
+                                    navController.navigate("${AppDestinations.DETALLE_SILO}/$siloId/${RolUsuario.ADMINISTRADOR.name}")
+                                }
+                            )
+                        }
+
+                        // 9. DASHBOARD JEFATURA
+                        composable(AppDestinations.DASHBOARD_JEFATURA) {
+                            DashboardJefaturaScreen(
+                                onVolver = { navController.popBackStack() }
+                            )
+                        }
+
+                        // 10. PERFIL DE USUARIO
+                        composable(
+                            route = "${AppDestinations.PERFIL}/{rolName}",
+                            arguments = listOf(navArgument("rolName") { type = NavType.StringType })
+                        ) { backStackEntry ->
+                            val rolName = backStackEntry.arguments?.getString("rolName")
+                            val rol = RolUsuario.entries.firstOrNull { it.name == rolName } ?: RolUsuario.OPERADOR
+                            PerfilScreen(
+                                rol = rol,
+                                onVolver = { navController.popBackStack() },
+                                onIrAConfiguracion = { navController.navigate("${AppDestinations.CONFIGURACION}/${rol.name}") },
+                                onCerrarSesion = {
+                                    AuthRepository.cerrarSesion()
+                                    navController.navigate(AppDestinations.LOGIN) {
+                                        popUpTo(0) { inclusive = true }
+                                    }
+                                }
+                            )
+                        }
+
+                        // 11. CONFIGURACIÓN Y PERSONALIZACIÓN DE LA APP (Con control de acceso por rol)
+                        composable(
+                            route = "${AppDestinations.CONFIGURACION}/{rolName}",
+                            arguments = listOf(navArgument("rolName") { type = NavType.StringType })
+                        ) { backStackEntry ->
+                            val rolName = backStackEntry.arguments?.getString("rolName")
+                            val rol = RolUsuario.entries.firstOrNull { it.name == rolName } ?: RolUsuario.OPERADOR
+                            ConfiguracionScreen(
+                                rol = rol,
+                                onVolver = { navController.popBackStack() }
+                            )
+                        }
+
+                        // 12. CHAT OPERATIVO (Canal Terreno ↔ Administración Ariztía)
+                        composable(
+                            route = "${AppDestinations.CHAT_OPERATIVO}/{rolName}",
+                            arguments = listOf(navArgument("rolName") { type = NavType.StringType })
+                        ) { backStackEntry ->
+                            val rolName = backStackEntry.arguments?.getString("rolName")
+                            val rol = RolUsuario.entries.firstOrNull { it.name == rolName } ?: RolUsuario.OPERADOR
+                            ChatOperativoScreen(
+                                rol = rol,
+                                onVolver = { navController.popBackStack() }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
