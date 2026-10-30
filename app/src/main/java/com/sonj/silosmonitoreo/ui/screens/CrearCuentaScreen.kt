@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -15,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Visibility
@@ -41,6 +44,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.sonj.silosmonitoreo.data.auth.AuthRepository
+import com.sonj.silosmonitoreo.data.auth.ValidadorCuenta
 import com.sonj.silosmonitoreo.model.RolUsuario
 import java.time.LocalDate
 
@@ -61,15 +65,30 @@ fun CrearCuentaScreen(
     var mostrarContrasena by remember { mutableStateOf(false) }
     var errorMensaje by remember { mutableStateOf<String?>(null) }
 
-    val intentarRegistro = {
-        val dia = diaText.toIntOrNull()
-        val mes = mesText.toIntOrNull()
-        val anio = anioText.toIntOrNull()
+    // true después del primer clic en "Registrarse": ahí se muestran los errores de todos los campos
+    var intentoEnvio by remember { mutableStateOf(false) }
 
-        if (dia == null || mes == null || anio == null || dia !in 1..31 || mes !in 1..12 || anio !in 1900..2026) {
-            errorMensaje = "Por favor ingresa una fecha de nacimiento válida."
+    // Errores por campo en tiempo real: aparecen apenas el usuario escribe (o al intentar registrar)
+    val errNombre = if (intentoEnvio || nombre.isNotEmpty()) ValidadorCuenta.errorNombre(nombre) else null
+    val errEmail = if (intentoEnvio || email.isNotEmpty()) ValidadorCuenta.errorEmail(email) else null
+    val errContrasena = if (intentoEnvio || contrasena.isNotEmpty()) ValidadorCuenta.errorContrasena(contrasena) else null
+    val errFecha = ValidadorCuenta.errorFechaNacimiento(diaText, mesText, anioText)
+
+    val intentarRegistro = {
+        intentoEnvio = true
+        val hayErrores = ValidadorCuenta.errorNombre(nombre) != null ||
+            ValidadorCuenta.errorEmail(email) != null ||
+            ValidadorCuenta.errorContrasena(contrasena) != null ||
+            errFecha != null
+
+        if (hayErrores) {
+            errorMensaje = "Revisa los campos marcados en rojo."
         } else {
-            val fechaNac = LocalDate.of(anio, mes, dia)
+            val fechaNac = LocalDate.of(
+                anioText.trim().toInt(),
+                mesText.trim().toInt(),
+                diaText.trim().toInt()
+            )
             val resultado = AuthRepository.registrarNuevoUsuario(
                 context = context,
                 nombre = nombre,
@@ -114,6 +133,17 @@ fun CrearCuentaScreen(
             onValueChange = { nombre = it; errorMensaje = null },
             label = { Text("Nombre Completo") },
             leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+            isError = errNombre != null,
+            trailingIcon = {
+                if (errNombre != null) {
+                    Icon(
+                        imageVector = Icons.Default.Error,
+                        contentDescription = "Error en el nombre",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            supportingText = { errNombre?.let { Text(it) } },
             singleLine = true,
             shape = RoundedCornerShape(14.dp),
             modifier = Modifier.fillMaxWidth()
@@ -127,6 +157,17 @@ fun CrearCuentaScreen(
             onValueChange = { email = it; errorMensaje = null },
             label = { Text("Correo Electrónico (ej. usuario@silos.com)") },
             leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
+            isError = errEmail != null,
+            trailingIcon = {
+                if (errEmail != null) {
+                    Icon(
+                        imageVector = Icons.Default.Error,
+                        contentDescription = "Error en el correo",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            supportingText = { errEmail?.let { Text(it) } },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
             shape = RoundedCornerShape(14.dp),
@@ -141,14 +182,25 @@ fun CrearCuentaScreen(
             onValueChange = { contrasena = it; errorMensaje = null },
             label = { Text("Contraseña (min. 6 caracteres)") },
             leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+            isError = errContrasena != null,
             trailingIcon = {
-                IconButton(onClick = { mostrarContrasena = !mostrarContrasena }) {
-                    Icon(
-                        imageVector = if (mostrarContrasena) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                        contentDescription = "Mostrar u ocultar contraseña"
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (errContrasena != null) {
+                        Icon(
+                            imageVector = Icons.Default.Error,
+                            contentDescription = "Error en la contraseña",
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
+                    IconButton(onClick = { mostrarContrasena = !mostrarContrasena }) {
+                        Icon(
+                            imageVector = if (mostrarContrasena) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                            contentDescription = "Mostrar u ocultar contraseña"
+                        )
+                    }
                 }
             },
+            supportingText = { errContrasena?.let { Text(it) } },
             singleLine = true,
             visualTransformation = if (mostrarContrasena) VisualTransformation.None else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -174,6 +226,7 @@ fun CrearCuentaScreen(
                 value = diaText,
                 onValueChange = { diaText = it; errorMensaje = null },
                 label = { Text("Día") },
+                isError = errFecha != null,
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 shape = RoundedCornerShape(12.dp),
@@ -183,6 +236,7 @@ fun CrearCuentaScreen(
                 value = mesText,
                 onValueChange = { mesText = it; errorMensaje = null },
                 label = { Text("Mes") },
+                isError = errFecha != null,
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 shape = RoundedCornerShape(12.dp),
@@ -192,11 +246,33 @@ fun CrearCuentaScreen(
                 value = anioText,
                 onValueChange = { anioText = it; errorMensaje = null },
                 label = { Text("Año") },
+                isError = errFecha != null,
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.weight(1.5f)
             )
+        }
+
+        if (errFecha != null) {
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Error,
+                    contentDescription = "Error en la fecha de nacimiento",
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = errFecha,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))

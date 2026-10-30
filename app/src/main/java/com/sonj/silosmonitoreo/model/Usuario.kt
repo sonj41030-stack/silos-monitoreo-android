@@ -3,7 +3,7 @@ package com.sonj.silosmonitoreo.model
 import java.time.LocalDate
 import java.time.Period
 
-data class Usuario(
+data class zUsuario(
     val id: String,
     val nombre: String,
     val email: String,

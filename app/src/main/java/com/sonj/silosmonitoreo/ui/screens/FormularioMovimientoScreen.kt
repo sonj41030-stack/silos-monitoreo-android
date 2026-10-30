@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -206,6 +207,19 @@ fun FormularioMovimientoScreen(
                 value = estado.cantidad,
                 onValueChange = { viewModel.onCantidadCambiada(it) },
                 label = { Text("Cantidad (Toneladas)") },
+                isError = estado.errorCantidad != null,
+                trailingIcon = {
+                    if (estado.errorCantidad != null) {
+                        Icon(
+                            imageVector = Icons.Default.Error,
+                            contentDescription = "Error en la cantidad",
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
+                },
+                supportingText = {
+                    estado.errorCantidad?.let { Text(it) }
+                },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 shape = RoundedCornerShape(14.dp),
@@ -219,6 +233,19 @@ fun FormularioMovimientoScreen(
                 value = estado.responsable,
                 onValueChange = { viewModel.onResponsableCambiado(it) },
                 label = { Text("Nombre del Responsable / Operador") },
+                isError = estado.errorResponsable != null,
+                trailingIcon = {
+                    if (estado.errorResponsable != null) {
+                        Icon(
+                            imageVector = Icons.Default.Error,
+                            contentDescription = "Error en el responsable",
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
+                },
+                supportingText = {
+                    estado.errorResponsable?.let { Text(it) }
+                },
                 singleLine = true,
                 shape = RoundedCornerShape(14.dp),
                 modifier = Modifier.fillMaxWidth()
@@ -231,6 +258,20 @@ fun FormularioMovimientoScreen(
                 value = estado.notas,
                 onValueChange = { viewModel.onNotasCambiadas(it) },
                 label = { Text("Notas / Observaciones") },
+                isError = estado.errorNotas != null,
+                trailingIcon = {
+                    if (estado.errorNotas != null) {
+                        Icon(
+                            imageVector = Icons.Default.Error,
+                            contentDescription = "Error en las notas",
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
+                },
+                supportingText = {
+                    // Muestra el error o, si no hay, el contador de caracteres
+                    Text(estado.errorNotas ?: "${estado.notas.length}/100")
+                },
                 shape = RoundedCornerShape(14.dp),
                 modifier = Modifier.fillMaxWidth()
             )

@@ -17,6 +17,10 @@ data class FormularioMovimientoUiState(
     val cantidad: String = "",
     val responsable: String = "",
     val notas: String = "",
+    // Errores por campo (null = campo válido)
+    val errorCantidad: String? = null,
+    val errorResponsable: String? = null,
+    val errorNotas: String? = null,
     val fotoEvidencia: Bitmap? = null,
     val mensajePermiso: String? = null,
     val mensajeError: String? = null,
@@ -50,15 +54,15 @@ class FormularioMovimientoViewModel(application: Application) : AndroidViewModel
     }
 
     fun onCantidadCambiada(valor: String) {
-        _uiState.update { it.copy(cantidad = valor, mensajeError = null) }
+        _uiState.update { it.copy(cantidad = valor, errorCantidad = ValidadorMovimiento.errorCantidad(valor), mensajeError = null) }
     }
 
     fun onResponsableCambiado(valor: String) {
-        _uiState.update { it.copy(responsable = valor, mensajeError = null) }
+        _uiState.update { it.copy(responsable = valor, errorResponsable = ValidadorMovimiento.errorResponsable(valor), mensajeError = null) }
     }
 
     fun onNotasCambiadas(valor: String) {
-        _uiState.update { it.copy(notas = valor) }
+        _uiState.update { it.copy(notas = valor, errorNotas = ValidadorMovimiento.errorNotas(valor), mensajeError = null) }
     }
 
     fun onFotoCapturada(bitmap: Bitmap) {
@@ -77,54 +81,45 @@ class FormularioMovimientoViewModel(application: Application) : AndroidViewModel
 
     fun guardarMovimiento() {
         val estado = _uiState.value
-        val cantidad = estado.cantidad.toIntOrNull()
 
-        when {
-            estado.siloSeleccionadoId.isBlank() -> {
-                _uiState.update { it.copy(mensajeError = "Por favor selecciona un silo.") }
-            }
-            cantidad == null || cantidad <= 0 -> {
-                _uiState.update {
-                    it.copy(mensajeError = "Por favor ingresa una cantidad válida en toneladas.")
-                }
-            }
-            cantidad > 999 -> {
-                _uiState.update {
-                    it.copy(mensajeError = "La cantidad máxima permitida es 999 toneladas por movimiento.")
-                }
-            }
-            estado.responsable.isBlank() -> {
-                _uiState.update {
-                    it.copy(mensajeError = "Por favor ingresa el nombre del responsable.")
-                }
-            }
-            estado.responsable.trim().length < 3 -> {
-                _uiState.update {
-                    it.copy(mensajeError = "El nombre del responsable debe tener al menos 3 caracteres.")
-                }
-            }
-            estado.notas.length > 100 -> {
-                _uiState.update {
-                    it.copy(mensajeError = "Las notas no pueden superar los 100 caracteres (actualmente: ${estado.notas.length}).")
-                }
-            }
-            else -> {
-                // Usa el contexto de la aplicación para acceder a SQLite
-                val context = getApplication<Application>().applicationContext
-                val exito = SilosRepository.registrarMovimiento(
-                    context = context,
-                    siloId = estado.siloSeleccionadoId,
-                    tipo = estado.tipoMovimiento,
-                    cantidadTn = cantidad,
-                    responsable = estado.responsable.trim(),
-                    notas = estado.notas.trim()
+        if (estado.siloSeleccionadoId.isBlank()) {
+            _uiState.update { it.copy(mensajeError = "Por favor selecciona un silo.") }
+            return
+        }
+
+        // Validación por campo: cada regla vive en ValidadorMovimiento
+        val errorCantidad = ValidadorMovimiento.errorCantidad(estado.cantidad)
+        val errorResponsable = ValidadorMovimiento.errorResponsable(estado.responsable)
+        val errorNotas = ValidadorMovimiento.errorNotas(estado.notas)
+
+        if (errorCantidad != null || errorResponsable != null || errorNotas != null) {
+            _uiState.update {
+                it.copy(
+                    errorCantidad = errorCantidad,
+                    errorResponsable = errorResponsable,
+                    errorNotas = errorNotas,
+                    mensajeError = "Revisa los campos marcados en rojo."
                 )
-                if (exito) {
-                    _uiState.update { it.copy(movimientoGuardado = true, mensajeError = null) }
-                } else {
-                    _uiState.update { it.copy(mensajeError = "Error al registrar el movimiento.") }
-                }
             }
+            return
+        }
+
+        val cantidad = estado.cantidad.trim().toInt()
+
+        // Todos los campos son válidos: se guarda en SQLite
+        val context = getApplication<Application>().applicationContext
+        val exito = SilosRepository.registrarMovimiento(
+            context = context,
+            siloId = estado.siloSeleccionadoId,
+            tipo = estado.tipoMovimiento,
+            cantidadTn = cantidad,
+            responsable = estado.responsable.trim(),
+            notas = estado.notas.trim()
+        )
+        if (exito) {
+            _uiState.update { it.copy(movimientoGuardado = true, mensajeError = null) }
+        } else {
+            _uiState.update { it.copy(mensajeError = "Error al registrar el movimiento.") }
         }
     }
 }
