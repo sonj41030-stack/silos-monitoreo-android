@@ -1,0 +1,17 @@
+# Cache y compilaciones de Gradle: se regeneran dentro del contenedor
+.gradle
+build
+app/build
+
+# Configuración de Android Studio
+.idea
+
+# Ruta del SDK de TU PC (C:\Users\...). Dentro de Docker daría error
+local.properties
+
+# Historial de Git
+.git
+
+# No hace falta copiar estos archivos al contenedor
+Dockerfile
+.dockerignore
