@@ -1,10 +1,12 @@
 package com.sonj.silosmonitoreo
 
+import com.sonj.silosmonitoreo.data.DatosPrueba
 import com.sonj.silosmonitoreo.data.SilosRepository
 import com.sonj.silosmonitoreo.model.EstadoSilo
 import com.sonj.silosmonitoreo.model.RolUsuario
 import com.sonj.silosmonitoreo.model.TipoMovimiento
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -14,7 +16,11 @@ class SilosMonitoreoTestSuite {
 
     @Before
     fun setUp() {
-        // Recalcular alertas y verificar estado inicial
+        // Restaura el estado inicial antes de cada test (el Repository es un objeto global compartido)
+        SilosRepository.granjas.clear()
+        SilosRepository.granjas.addAll(DatosPrueba.granjasDePrueba)
+        SilosRepository.movimientos.clear()
+        SilosRepository.movimientos.addAll(DatosPrueba.movimientosDePrueba)
         SilosRepository.recalcularAlertas()
     }
 
@@ -33,17 +39,17 @@ class SilosMonitoreoTestSuite {
         assertNotNull("El silo s1 debe existir", granjaYSilo)
 
         val silo = granjaYSilo!!.second
-        assertEquals("Silo 1", silo.nombre)
+        assertEquals("Silo A1", silo.nombre)
         assertEquals(80, silo.porcentaje)
         assertEquals(EstadoSilo.NORMAL, silo.estado)
     }
-
     @Test
     fun test3_RegistroMovimientoEntradaYSalida() {
         val movimientosIniciales = SilosRepository.movimientos.size
 
-        // Registrar una carga (ENTRADA) de 10 toneladas en Silo 2 (Granja Norte - s2)
+        // Registrar una carga (ENTRADA) de 10 toneladas en el silo s2 (sin context: no usa SQLite)
         val exito = SilosRepository.registrarMovimiento(
+            context = null,
             siloId = "s2",
             tipo = TipoMovimiento.ENTRADA,
             cantidadTn = 10,
@@ -62,11 +68,11 @@ class SilosMonitoreoTestSuite {
 
     @Test
     fun test4_RegistroMovimientoSalidaYBajaNivel() {
-        // Registrar una descarga (SALIDA) en Silo 1 (s1)
-        val granjaYSiloAntes = SilosRepository.obtenerSilo("s1")!!
-        val pctAntes = granjaYSiloAntes.second.porcentaje
+        // Registrar una descarga (SALIDA) en el silo s1 (120 tn de 150)
+        val pctAntes = SilosRepository.obtenerSilo("s1")!!.second.porcentaje
 
-        SilosRepository.registrarMovimiento(
+        val exito = SilosRepository.registrarMovimiento(
+            context = null,
             siloId = "s1",
             tipo = TipoMovimiento.SALIDA,
             cantidadTn = 60,
@@ -74,9 +80,9 @@ class SilosMonitoreoTestSuite {
             notas = "Despacho masivo"
         )
 
-        val granjaYSiloDespues = SilosRepository.obtenerSilo("s1")!!
-        val pctDespues = granjaYSiloDespues.second.porcentaje
+        val pctDespues = SilosRepository.obtenerSilo("s1")!!.second.porcentaje
 
+        assertTrue("La salida válida debe registrarse", exito)
         assertTrue("El porcentaje debe haber disminuido", pctDespues < pctAntes)
     }
 
@@ -95,7 +101,6 @@ class SilosMonitoreoTestSuite {
         val historial = SilosRepository.movimientos
         assertTrue("El historial debe contener registros de prueba", historial.size >= 3)
     }
-
     @Test
     fun test7_DashboardResumenJefaturaCalculos() {
         val todosLosSilos = SilosRepository.granjas.flatMap { it.silos }
@@ -112,5 +117,41 @@ class SilosMonitoreoTestSuite {
         assertEquals("Operador", RolUsuario.OPERADOR.etiqueta)
         assertEquals("Administrador", RolUsuario.ADMINISTRADOR.etiqueta)
         assertEquals("Jefatura", RolUsuario.JEFATURA.etiqueta)
+    }
+
+    @Test
+    fun test9_SalidaMayorAlStockSeRechaza() {
+        // El silo s3 tiene 10 % de 100 tn = 10 tn: sacar 500 tn no debe permitirse
+        val movimientosAntes = SilosRepository.movimientos.size
+        val pctAntes = SilosRepository.obtenerSilo("s3")!!.second.porcentaje
+
+        val exito = SilosRepository.registrarMovimiento(
+            context = null,
+            siloId = "s3",
+            tipo = TipoMovimiento.SALIDA,
+            cantidadTn = 500,
+            responsable = "Operador Test",
+            notas = "Salida imposible"
+        )
+
+        assertFalse("Una salida mayor al stock debe rechazarse", exito)
+        assertEquals("No debe agregarse ningún movimiento", movimientosAntes, SilosRepository.movimientos.size)
+        assertEquals("El nivel del silo no debe cambiar", pctAntes, SilosRepository.obtenerSilo("s3")!!.second.porcentaje)
+    }
+
+    @Test
+    fun test10_EntradaMayorALaCapacidadSeRechaza() {
+        // El silo s4 está al 90 % de 200 tn (180 tn): agregar 50 tn supera su capacidad
+        val exito = SilosRepository.registrarMovimiento(
+            context = null,
+            siloId = "s4",
+            tipo = TipoMovimiento.ENTRADA,
+            cantidadTn = 50,
+            responsable = "Operador Test",
+            notas = "Entrada que desborda"
+        )
+
+        assertFalse("Una entrada que supera la capacidad debe rechazarse", exito)
+        assertEquals(90, SilosRepository.obtenerSilo("s4")!!.second.porcentaje)
     }
 }

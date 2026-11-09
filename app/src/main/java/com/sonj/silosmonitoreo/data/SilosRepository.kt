@@ -54,7 +54,7 @@ object SilosRepository {
     }
 
     fun registrarMovimiento(
-        context: Context,
+        context: Context?,
         siloId: String,
         tipo: TipoMovimiento,
         cantidadTn: Int,
@@ -68,10 +68,12 @@ object SilosRepository {
             if (indexSilo != -1) {
                 val siloActual = granja.silos[indexSilo]
                 val toneladasActuales = (siloActual.porcentaje * siloActual.capacidadToneladas) / 100
+                if (tipo == TipoMovimiento.SALIDA && cantidadTn > toneladasActuales) return false
+                if (tipo == TipoMovimiento.ENTRADA && toneladasActuales + cantidadTn > siloActual.capacidadToneladas) return false
                 val nuevasToneladas = if (tipo == TipoMovimiento.ENTRADA) {
-                    (toneladasActuales + cantidadTn).coerceAtMost(siloActual.capacidadToneladas)
+                    toneladasActuales + cantidadTn
                 } else {
-                    (toneladasActuales - cantidadTn).coerceAtLeast(0)
+                    toneladasActuales - cantidadTn
                 }
                 val nuevoPorcentaje = ((nuevasToneladas.toFloat() / siloActual.capacidadToneladas) * 100).toInt()
 
@@ -94,8 +96,7 @@ object SilosRepository {
                 )
 
                 // Persistir en SQLite
-                val db = LocalDatabaseManager.getInstance(context)
-                db.guardarMovimiento(nuevoMovimiento)
+                context?.let { LocalDatabaseManager.getInstance(it).guardarMovimiento(nuevoMovimiento) }
 
                 // Actualizar lista en memoria (reactiva)
                 movimientos.add(0, nuevoMovimiento)

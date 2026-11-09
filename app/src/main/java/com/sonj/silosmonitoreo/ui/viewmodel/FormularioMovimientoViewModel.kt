@@ -119,7 +119,7 @@ class FormularioMovimientoViewModel(application: Application) : AndroidViewModel
         if (exito) {
             _uiState.update { it.copy(movimientoGuardado = true, mensajeError = null) }
         } else {
-            _uiState.update { it.copy(mensajeError = "Error al registrar el movimiento.") }
+            _uiState.update { it.copy(mensajeError = "No se pudo registrar: la salida supera el stock del silo o la entrada supera su capacidad.") }
         }
     }
 }
