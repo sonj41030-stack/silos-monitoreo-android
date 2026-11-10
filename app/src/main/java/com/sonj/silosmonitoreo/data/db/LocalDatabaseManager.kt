@@ -19,7 +19,7 @@ class LocalDatabaseManager(context: Context) :
 
     companion object {
         private const val DATABASE_NAME = "silos_monitoreo.db"
-        private const val DATABASE_VERSION = 3   // Incrementado a versión 3 por la tabla movimientos
+        private const val DATABASE_VERSION = 4   // v4: tabla niveles_silos
 
         // ── Tabla: usuarios ──────────────────────────────────────────────
         private const val TABLE_USUARIOS = "usuarios"
@@ -42,6 +42,11 @@ class LocalDatabaseManager(context: Context) :
         private const val MOV_FECHA_HORA = "fecha_hora"
         private const val MOV_RESPONSABLE = "responsable"
         private const val MOV_NOTAS = "notas"
+
+        // ── Tabla: niveles_silos ──────────────────────────────────────────
+        private const val TABLE_NIVELES = "niveles_silos"
+        private const val NIVEL_SILO_ID = "silo_id"
+        private const val NIVEL_PORCENTAJE = "porcentaje"
 
         @Volatile
         private var instance: LocalDatabaseManager? = null
@@ -85,10 +90,31 @@ class LocalDatabaseManager(context: Context) :
         """.trimIndent()
         db.execSQL(createMovimientosTable)
 
+        // Tabla niveles_silos (nivel actual de cada silo)
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS $TABLE_NIVELES (
+                $NIVEL_SILO_ID TEXT PRIMARY KEY,
+                $NIVEL_PORCENTAJE INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+
         insertarUsuariosPredeterminados(db)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        // Agrega la tabla niveles_silos si se viene de una versión anterior sin ella
+        if (oldVersion < 4) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS $TABLE_NIVELES (
+                    $NIVEL_SILO_ID TEXT PRIMARY KEY,
+                    $NIVEL_PORCENTAJE INTEGER NOT NULL
+                )
+                """.trimIndent()
+            )
+        }
         // Agrega la tabla movimientos si se viene de una versión anterior sin ella
         if (oldVersion < 3) {
             val createMovimientosTable = """
@@ -275,5 +301,29 @@ class LocalDatabaseManager(context: Context) :
     fun eliminarTodosLosMovimientos() {
         writableDatabase.delete(TABLE_MOVIMIENTOS, null, null)
     }
-}
 
+    // ── Niveles de silos ─────────────────────────────────────────────────
+
+    /** Guarda (o reemplaza) el nivel actual de un silo. */
+    fun guardarNivelSilo(siloId: String, porcentaje: Int) {
+        val values = ContentValues().apply {
+            put(NIVEL_SILO_ID, siloId)
+            put(NIVEL_PORCENTAJE, porcentaje)
+        }
+        writableDatabase.insertWithOnConflict(
+            TABLE_NIVELES, null, values, SQLiteDatabase.CONFLICT_REPLACE
+        )
+    }
+
+    /** Devuelve los niveles guardados como mapa: id del silo -> porcentaje. */
+    fun obtenerNivelesSilos(): Map<String, Int> {
+        val mapa = mutableMapOf<String, Int>()
+        readableDatabase.query(TABLE_NIVELES, null, null, null, null, null, null).use { c ->
+            while (c.moveToNext()) {
+                mapa[c.getString(c.getColumnIndexOrThrow(NIVEL_SILO_ID))] =
+                    c.getInt(c.getColumnIndexOrThrow(NIVEL_PORCENTAJE))
+            }
+        }
+        return mapa
+    }
+}
