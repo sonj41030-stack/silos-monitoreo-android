@@ -56,4 +56,4 @@ COPY . .
 # chmod +x: da permiso de ejecución a gradlew (si no, falla con "Permission denied").
 # assembleDebug: genera el APK de depuración.
 # --no-daemon: evita dejar un proceso de Gradle en segundo plano dentro de la imagen.
-RUN chmod +x gradlew && ./gradlew testDebugUnitTest assembleDebug --no-daemon
+RUN sed -i 's/\r$//' gradlew && chmod +x gradlew && ./gradlew testDebugUnitTest assembleDebug --no-daemon
