@@ -25,7 +25,7 @@ object SilosRepository {
     // ── Inicialización con la base de datos ──────────────────────────────
 
     /**
-     * Carga los movimientos desde SQLite al iniciar la app.
+     * Carga los movimientos y los niveles de los silos desde SQLite al iniciar la app.
      * Debe llamarse desde MainActivity o desde el primer ViewModel que se crea.
      */
     fun cargarMovimientosDesdeDB(context: Context) {
@@ -33,14 +33,27 @@ object SilosRepository {
         val movimientosGuardados = db.obtenerTodosLosMovimientos()
         movimientos.clear()
         if (movimientosGuardados.isEmpty()) {
-            // Si la BD está vacía, cargamos los datos de prueba iniciales
+            // Si la BD está vacía, cargamos los datos de prueba y los persistimos
             movimientos.addAll(DatosPrueba.movimientosDePrueba)
-            // Y los persistimos en la BD para la próxima vez
-            movimientosGuardados // no hace nada, solo continúa
+            DatosPrueba.movimientosDePrueba.forEach { db.guardarMovimiento(it) }
         } else {
             movimientos.addAll(movimientosGuardados)
         }
+        cargarNivelesDesdeDB(db)
         recalcularAlertas()
+    }
+
+    /** Aplica sobre los silos de prueba los niveles que se guardaron en la BD. */
+    private fun cargarNivelesDesdeDB(db: LocalDatabaseManager) {
+        val niveles = db.obtenerNivelesSilos()
+        if (niveles.isEmpty()) return
+        for (i in granjas.indices) {
+            val granja = granjas[i]
+            val silosActualizados = granja.silos.map { silo ->
+                niveles[silo.id]?.let { silo.copy(porcentaje = it) } ?: silo
+            }
+            granjas[i] = granja.copy(silos = silosActualizados)
+        }
     }
 
     // ── Operaciones ──────────────────────────────────────────────────────
@@ -95,8 +108,12 @@ object SilosRepository {
                     notas = notas
                 )
 
-                // Persistir en SQLite
-                context?.let { LocalDatabaseManager.getInstance(it).guardarMovimiento(nuevoMovimiento) }
+                // Persistir en SQLite: el movimiento y el nuevo nivel del silo
+                context?.let {
+                    val db = LocalDatabaseManager.getInstance(it)
+                    db.guardarMovimiento(nuevoMovimiento)
+                    db.guardarNivelSilo(siloId, nuevoPorcentaje)
+                }
 
                 // Actualizar lista en memoria (reactiva)
                 movimientos.add(0, nuevoMovimiento)
@@ -142,4 +159,3 @@ object SilosRepository {
         }
     }
 }
-
