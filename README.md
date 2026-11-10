@@ -169,4 +169,4 @@ silos-monitoreo-android/
 
 **Edixon Cabriles** · [@sonj41030-stack](https://github.com/sonj41030-stack)
 
-Proyecto académico · DSY1105
+Proyecto 
