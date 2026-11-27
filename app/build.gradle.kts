@@ -1,4 +1,5 @@
 plugins {
+    jacoco
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
 }
@@ -59,3 +60,39 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     implementation(libs.androidx.navigation.compose)
 }
+
+// ---------- Cobertura de pruebas unitarias (JaCoCo) ----------
+// Mide solo la logica (data, ViewModel, modelo). Quedan fuera pantallas Compose, tema y SQLite.
+tasks.register<JacocoReport>("jacocoTestReport") {
+    dependsOn("testDebugUnitTest")
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
+    val excluidos = listOf(
+        "**/R.class", "**/R$*.class", "**/BuildConfig.*", "**/Manifest*.*",
+        "**/ui/screens/**", "**/ui/theme/**", "**/ui/components/**",
+        "**/data/db/**", "**/MainActivity*", "**/navigation/**",
+        "**/data/DatosPrueba*", "**/data/PreferenciasManager*",
+        "**/data/api/ApiClient*", "**/data/api/ApiConfig*",
+        "**/data/api/*Request*", "**/data/api/*Response*", "**/data/api/ClimaActual*",
+        "**/data/authapi/AuthApiClient*", "**/data/authapi/*Request*", "**/data/authapi/*Response*",
+        "**/model/Granja*", "**/model/Movimiento*", "**/model/Alerta*",
+        "**/model/MensajeChat*", "**/model/TamanoFuente*", "**/model/EstiloTipografia*",
+        "**/*ComposableSingletons*", "**/*\$Lambda*", "**/*\$\$inlined*"
+    )
+    classDirectories.setFrom(
+        fileTree(layout.buildDirectory.dir("intermediates/built_in_kotlinc/debug/compileDebugKotlin/classes")) {
+            exclude(excluidos)
+        },
+        fileTree(layout.buildDirectory.dir("tmp/kotlin-classes/debug")) {
+            exclude(excluidos)
+        }
+    )
+    sourceDirectories.setFrom(files("src/main/java"))
+    executionData.setFrom(fileTree(layout.buildDirectory) {
+        include("jacoco/testDebugUnitTest.exec", "outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec")
+    })
+}
+
+android.buildTypes.getByName("debug").enableUnitTestCoverage = true
