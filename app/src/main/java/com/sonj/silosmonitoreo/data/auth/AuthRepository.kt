@@ -2,6 +2,7 @@ package com.sonj.silosmonitoreo.data.auth
 
 import android.content.Context
 import com.google.gson.Gson
+import com.sonj.silosmonitoreo.data.SilosRepository
 import com.sonj.silosmonitoreo.data.authapi.AuthApiClient
 import com.sonj.silosmonitoreo.data.authapi.AuthLoginRequest
 import com.sonj.silosmonitoreo.data.authapi.AuthLoginResponse
@@ -153,6 +154,8 @@ object AuthRepository {
                     LocalDatabaseManager.getInstance(context).buscarUsuarioPorEmail(emailTrimmed)
                 }
                 AuthSession.token = body.token
+                SilosRepository.cargarGranjas()
+                SilosRepository.cargarMovimientos()
                 usuarioAutenticado = Usuario(
                     id = local?.id ?: UUID.randomUUID().toString(),
                     nombre = body.usuarioNombre ?: emailTrimmed,
@@ -202,7 +205,7 @@ object AuthRepository {
         }
         return try {
             val resp = withContext(Dispatchers.IO) {
-                AuthApiClient.service.registro(AuthRegistroRequest(usuarioLocal.nombre, emailTrimmed, contrasena, rol.name))
+                AuthApiClient.service.registro(AuthRegistroRequest(usuarioLocal.nombre, emailTrimmed, contrasena, fechaNacimiento.toString(), rol.name))
             }
             if (resp.isSuccessful) {
                 // Fecha de nacimiento y perfil quedan en SQLite (el servidor no los maneja)
@@ -222,5 +225,6 @@ object AuthRepository {
     fun cerrarSesion() {
         usuarioAutenticado = null
         AuthSession.limpiar()
+        SilosRepository.limpiar()
     }
 }
