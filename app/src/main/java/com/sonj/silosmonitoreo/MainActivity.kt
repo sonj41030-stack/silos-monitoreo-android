@@ -38,9 +38,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Carga los movimientos desde SQLite al iniciar la app (persistencia real)
-        SilosRepository.cargarMovimientosDesdeDB(applicationContext)
-
         setContent {
             SilosMonitoreoTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
@@ -239,7 +236,7 @@ class MainActivity : ComponentActivity() {
                             PantallaAlertasScreen(
                                 onVolver = { navController.popBackStack() },
                                 onVerSilo = { siloId ->
-                                    navController.navigate("${AppDestinations.DETALLE_SILO}/$siloId/${RolUsuario.ADMINISTRADOR.name}")
+                                    navController.navigate("${AppDestinations.DETALLE_SILO}/$siloId/${(AuthRepository.usuarioAutenticado?.rol ?: RolUsuario.OPERADOR).name}")
                                 }
                             )
                         }
