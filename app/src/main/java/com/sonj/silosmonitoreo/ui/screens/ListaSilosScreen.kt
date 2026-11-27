@@ -61,6 +61,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sonj.silosmonitoreo.data.ChatRepository
+import com.sonj.silosmonitoreo.data.Clima
+import com.sonj.silosmonitoreo.data.api.Resultado
 import com.sonj.silosmonitoreo.model.EstadoSilo
 import com.sonj.silosmonitoreo.model.Granja
 import com.sonj.silosmonitoreo.model.RolUsuario
@@ -91,6 +93,10 @@ fun ListaSilosScreen(
 
     // Sincronizar el rol con el ViewModel al abrir la pantalla
     LaunchedEffect(rol) { viewModel.inicializarRol(rol) }
+
+    // API externa: clima ambiente
+    val clima by viewModel.clima.collectAsState()
+    LaunchedEffect(Unit) { viewModel.cargarClima() }
 
     val filtroGranjaSeleccionada = uiState.filtroGranja
     val filtroEstadoSeleccionado = uiState.filtroEstado
@@ -278,6 +284,11 @@ fun ListaSilosScreen(
                         .clickable { onVerDashboardJefaturaClick() }
                 )
             }
+
+            TarjetaClima(
+                clima = clima,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+            )
 
             // Filtros de Granja y Estado
             Column(
@@ -500,5 +511,28 @@ private fun TarjetaEncabezadoGranja(granja: Granja, rol: RolUsuario) {
                 )
             }
         }
+    }
+}
+
+/** Muestra temperatura y humedad ambiente (API externa Open-Meteo). */
+@Composable
+private fun TarjetaClima(clima: Resultado<Clima>?, modifier: Modifier = Modifier) {
+    val texto = when (clima) {
+        null -> "Clima ambiente: cargando..."
+        is Resultado.Ok -> "Clima ambiente: ${clima.data.temperaturaC} C  |  Humedad: ${clima.data.humedadPct}%"
+        is Resultado.Error -> "Clima ambiente no disponible"
+    }
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+        )
+    ) {
+        Text(
+            text = texto,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(12.dp)
+        )
     }
 }
