@@ -80,6 +80,7 @@ fun ListaSilosScreen(
     onVerConfiguracionClick: () -> Unit = {},
     onVerChatClick: () -> Unit = {},
     onCambiarRol: () -> Unit = {},
+    onNuevoSiloClick: () -> Unit = {},
     onCerrarSesion: () -> Unit = {},
     viewModel: ListaSilosViewModel = viewModel()
 ) {
@@ -213,6 +214,16 @@ fun ListaSilosScreen(
                                     onCambiarRol()
                                 }
                             )
+                            if (rol == RolUsuario.ADMINISTRADOR) {
+                                DropdownMenuItem(
+                                    text = { Text("Nuevo silo") },
+                                    leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) },
+                                    onClick = {
+                                        menuMasOpcionesAbierto = false
+                                        onNuevoSiloClick()
+                                    }
+                                )
+                            }
                             HorizontalDivider()
                             DropdownMenuItem(
                                 text = { Text("Cerrar Sesión", color = MaterialTheme.colorScheme.error) },

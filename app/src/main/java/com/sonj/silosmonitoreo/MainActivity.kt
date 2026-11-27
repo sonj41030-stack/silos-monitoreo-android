@@ -29,6 +29,7 @@ import com.sonj.silosmonitoreo.ui.screens.PerfilScreen
 import com.sonj.silosmonitoreo.ui.screens.ConfiguracionScreen
 import com.sonj.silosmonitoreo.ui.screens.ChatOperativoScreen
 import com.sonj.silosmonitoreo.ui.screens.SeleccionRolScreen
+import com.sonj.silosmonitoreo.ui.screens.SiloFormScreen
 import com.sonj.silosmonitoreo.ui.screens.SplashScreen
 import com.sonj.silosmonitoreo.ui.theme.SilosMonitoreoTheme
 
@@ -142,6 +143,9 @@ class MainActivity : ComponentActivity() {
                                 onVerChatClick = {
                                     navController.navigate("${AppDestinations.CHAT_OPERATIVO}/${rol.name}")
                                 },
+                                onNuevoSiloClick = {
+                                    navController.navigate(AppDestinations.FORMULARIO_SILO)
+                                },
                                 onCambiarRol = {
                                     navController.navigate("${AppDestinations.SELECCION_ROL}/${rol.name}")
                                 },
@@ -171,6 +175,9 @@ class MainActivity : ComponentActivity() {
                                 onVolver = { navController.popBackStack() },
                                 onRegistrarMovimiento = { id ->
                                     navController.navigate("${AppDestinations.REGISTRO_MOVIMIENTO}?siloId=$id")
+                                },
+                                onEditarSilo = { id ->
+                                    navController.navigate("${AppDestinations.FORMULARIO_SILO}?siloId=$id")
                                 },
                                 onVerHistorialSilo = { id ->
                                     navController.navigate("${AppDestinations.HISTORIAL_MOVIMIENTOS}?siloId=$id")
@@ -206,6 +213,24 @@ class MainActivity : ComponentActivity() {
                             HistorialMovimientosScreen(
                                 siloIdFiltro = siloId,
                                 onVolver = { navController.popBackStack() }
+                            )
+                        }
+
+                        // 7b. FORMULARIO DE SILO (crear / editar / eliminar, solo administrador)
+                        composable(
+                            route = "${AppDestinations.FORMULARIO_SILO}?siloId={siloId}",
+                            arguments = listOf(navArgument("siloId") {
+                                type = NavType.StringType
+                                nullable = true
+                            })
+                        ) { backStackEntry ->
+                            SiloFormScreen(
+                                siloId = backStackEntry.arguments?.getString("siloId"),
+                                onVolver = { navController.popBackStack() },
+                                // Despues de crear, editar o eliminar se vuelve a la lista
+                                onOperacionExitosa = {
+                                    navController.popBackStack("${AppDestinations.LISTA_SILOS}/{rolName}", false)
+                                }
                             )
                         }
 
