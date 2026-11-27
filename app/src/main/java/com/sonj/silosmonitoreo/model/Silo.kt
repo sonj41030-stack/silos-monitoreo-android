@@ -6,7 +6,8 @@ data class Silo(
     val porcentaje: Int,
     val tipoGrano: String = "Maíz",
     val capacidadToneladas: Int = 100,
-    val destinoUso: String = "Nutrición Avícola (Pollos Ariztía)"
+    val destinoUso: String = "Nutrición Avícola (Pollos Ariztía)",
+    val toneladasActuales: Int = porcentaje * capacidadToneladas / 100
 ) {
     val estado: EstadoSilo
         get() = EstadoSilo.desdePorcentaje(porcentaje.toFloat())

@@ -17,7 +17,8 @@ fun SiloApiResponse.toModel() = Silo(
     nombre = nombre,
     porcentaje = porcentaje.roundToInt(),
     tipoGrano = producto,
-    capacidadToneladas = capacidadTn.roundToInt()
+    capacidadToneladas = capacidadTn.roundToInt(),
+    toneladasActuales = toneladasActuales.roundToInt()
 )
 
 // AJUSTA los parámetros si tu clase Granja tiene otros campos.

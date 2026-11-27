@@ -3,8 +3,10 @@ package com.sonj.silosmonitoreo.data.api
 import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -24,6 +26,18 @@ interface AuthApi {
 interface SilosApi {
     @GET("api/granjas")
     suspend fun granjas(): Response<List<GranjaApiResponse>>
+
+    @POST("api/silos")
+    suspend fun crearSilo(@Body request: SiloApiRequest): Response<SiloApiResponse>
+
+    @PUT("api/silos/{id}")
+    suspend fun actualizarSilo(
+        @Path("id") siloId: String,
+        @Body request: SiloApiRequest
+    ): Response<SiloApiResponse>
+
+    @DELETE("api/silos/{id}")
+    suspend fun eliminarSilo(@Path("id") siloId: String): Response<Unit>
 
     @POST("api/silos/{id}/movimientos")
     suspend fun ajustar(

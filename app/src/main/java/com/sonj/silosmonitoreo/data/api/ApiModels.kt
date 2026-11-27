@@ -76,3 +76,12 @@ data class ClimaActual(
     @SerializedName("temperature_2m") val temperatura: Double,
     @SerializedName("relative_humidity_2m") val humedad: Int
 )
+
+// Cuerpo de POST/PUT /api/silos (solo administrador)
+data class SiloApiRequest(
+    val nombre: String,
+    val producto: String,
+    val capacidadTn: Double,
+    val toneladasActuales: Double,
+    val granjaId: String
+)
