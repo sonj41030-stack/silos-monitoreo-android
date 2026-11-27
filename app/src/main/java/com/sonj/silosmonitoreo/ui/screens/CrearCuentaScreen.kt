@@ -44,6 +44,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.sonj.silosmonitoreo.data.auth.AuthRepository
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import com.sonj.silosmonitoreo.data.auth.ValidadorCuenta
 import com.sonj.silosmonitoreo.model.RolUsuario
 import java.time.LocalDate
@@ -54,6 +56,9 @@ fun CrearCuentaScreen(
     onVolverLogin: () -> Unit
 ) {
     val context = LocalContext.current
+
+    val scope = rememberCoroutineScope()
+    var cargando by remember { mutableStateOf(false) }
 
     var nombre by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
@@ -89,20 +94,25 @@ fun CrearCuentaScreen(
                 mesText.trim().toInt(),
                 diaText.trim().toInt()
             )
-            val resultado = AuthRepository.registrarNuevoUsuario(
-                context = context,
-                nombre = nombre,
-                email = email,
-                contrasena = contrasena,
-                fechaNacimiento = fechaNac,
-                rol = rolSeleccionado
-            )
-
-            if (resultado.first) {
-                errorMensaje = null
-                onCuentaCreada(rolSeleccionado)
-            } else {
-                errorMensaje = resultado.second
+            if (!cargando) {
+                cargando = true
+                scope.launch {
+                    val resultado = AuthRepository.registrarRemoto(
+                        context = context,
+                        nombre = nombre,
+                        email = email,
+                        contrasena = contrasena,
+                        fechaNacimiento = fechaNac,
+                        rol = rolSeleccionado
+                    )
+                    cargando = false
+                    if (resultado.first) {
+                        errorMensaje = null
+                        onCuentaCreada(rolSeleccionado)
+                    } else {
+                        errorMensaje = resultado.second
+                    }
+                }
             }
         }
     }

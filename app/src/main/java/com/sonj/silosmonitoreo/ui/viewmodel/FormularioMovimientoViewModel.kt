@@ -3,7 +3,10 @@ package com.sonj.silosmonitoreo.ui.viewmodel
 import android.app.Application
 import android.graphics.Bitmap
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import com.sonj.silosmonitoreo.data.SilosRepository
+import com.sonj.silosmonitoreo.data.api.Resultado
+import kotlinx.coroutines.launch
 import com.sonj.silosmonitoreo.model.Silo
 import com.sonj.silosmonitoreo.model.TipoMovimiento
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -107,19 +110,18 @@ class FormularioMovimientoViewModel(application: Application) : AndroidViewModel
         val cantidad = estado.cantidad.trim().toInt()
 
         // Todos los campos son válidos: se guarda en SQLite
-        val context = getApplication<Application>().applicationContext
-        val exito = SilosRepository.registrarMovimiento(
-            context = context,
-            siloId = estado.siloSeleccionadoId,
-            tipo = estado.tipoMovimiento,
-            cantidadTn = cantidad,
-            responsable = estado.responsable.trim(),
-            notas = estado.notas.trim()
-        )
-        if (exito) {
-            _uiState.update { it.copy(movimientoGuardado = true, mensajeError = null) }
-        } else {
-            _uiState.update { it.copy(mensajeError = "No se pudo registrar: la salida supera el stock del silo o la entrada supera su capacidad.") }
+        // Campos validos: se envia al microservicio
+        viewModelScope.launch {
+            val resultado = SilosRepository.registrarMovimiento(
+                siloId = estado.siloSeleccionadoId,
+                tipo = estado.tipoMovimiento,
+                cantidadTn = cantidad,
+                notas = estado.notas.trim()
+            )
+            when (resultado) {
+                is Resultado.Ok -> _uiState.update { it.copy(movimientoGuardado = true, mensajeError = null) }
+                is Resultado.Error -> _uiState.update { it.copy(mensajeError = resultado.mensaje) }
+            }
         }
     }
 }

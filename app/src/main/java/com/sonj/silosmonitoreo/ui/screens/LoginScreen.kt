@@ -42,6 +42,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.sonj.silosmonitoreo.data.auth.AuthRepository
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import com.sonj.silosmonitoreo.model.RolUsuario
 
 @Composable
@@ -57,19 +59,27 @@ fun LoginScreen(
     var mostrarContrasena by remember { mutableStateOf(false) }
     var errorMensaje by remember { mutableStateOf<String?>(null) }
 
-    val intentarLogin = {
-        val resultado = AuthRepository.validarLogin(
-            context = context,
-            email = usuarioEmail,
-            contrasena = contrasena,
-            rol = rolSeleccionado
-        )
+    val scope = rememberCoroutineScope()
+    var cargando by remember { mutableStateOf(false) }
 
-        if (resultado.first) {
-            errorMensaje = null
-            onIngresar(rolSeleccionado)
-        } else {
-            errorMensaje = resultado.second
+    val intentarLogin = {
+        if (!cargando) {
+            cargando = true
+            scope.launch {
+                val resultado = AuthRepository.loginRemoto(
+                    context = context,
+                    email = usuarioEmail,
+                    contrasena = contrasena,
+                    rol = rolSeleccionado
+                )
+                cargando = false
+                if (resultado.first) {
+                    errorMensaje = null
+                    onIngresar(rolSeleccionado)
+                } else {
+                    errorMensaje = resultado.second
+                }
+            }
         }
     }
 

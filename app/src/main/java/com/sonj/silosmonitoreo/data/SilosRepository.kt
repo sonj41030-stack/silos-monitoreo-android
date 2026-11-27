@@ -2,61 +2,69 @@ package com.sonj.silosmonitoreo.data
 
 import android.content.Context
 import androidx.compose.runtime.mutableStateListOf
-import com.sonj.silosmonitoreo.data.db.LocalDatabaseManager
+import com.sonj.silosmonitoreo.data.api.AjusteSiloRequest
+import com.sonj.silosmonitoreo.data.api.ApiClient
+import com.sonj.silosmonitoreo.data.api.MovimientoApiRequest
+import com.sonj.silosmonitoreo.data.api.MovimientosApi
+import com.sonj.silosmonitoreo.data.api.Resultado
+import com.sonj.silosmonitoreo.data.api.SilosApi
+import com.sonj.silosmonitoreo.data.api.llamarApi
+import com.sonj.silosmonitoreo.data.api.toModel
 import com.sonj.silosmonitoreo.model.Alerta
 import com.sonj.silosmonitoreo.model.EstadoSilo
 import com.sonj.silosmonitoreo.model.Granja
 import com.sonj.silosmonitoreo.model.Movimiento
 import com.sonj.silosmonitoreo.model.Silo
 import com.sonj.silosmonitoreo.model.TipoMovimiento
-import java.time.LocalDateTime
 import java.util.UUID
 
 object SilosRepository {
 
-    val granjas = mutableStateListOf<Granja>().apply {
-        addAll(DatosPrueba.granjasDePrueba)
-    }
+    // Inyectables: en los tests se reemplazan por mocks.
+    var silosApi: SilosApi = ApiClient.silosApi
+    var movimientosApi: MovimientosApi = ApiClient.movimientosApi
 
+    val granjas = mutableStateListOf<Granja>()
     val movimientos = mutableStateListOf<Movimiento>()
-
     val alertas = mutableStateListOf<Alerta>()
 
-    // ── Inicialización con la base de datos ──────────────────────────────
+    @Deprecated("Ya no se usa SQLite: los datos vienen de los microservicios. Quita esta llamada.")
+    fun cargarMovimientosDesdeDB(context: Context) { /* sin efecto */ }
 
-    /**
-     * Carga los movimientos y los niveles de los silos desde SQLite al iniciar la app.
-     * Debe llamarse desde MainActivity o desde el primer ViewModel que se crea.
-     */
-    fun cargarMovimientosDesdeDB(context: Context) {
-        val db = LocalDatabaseManager.getInstance(context)
-        val movimientosGuardados = db.obtenerTodosLosMovimientos()
+    fun limpiar() {
+        granjas.clear()
         movimientos.clear()
-        if (movimientosGuardados.isEmpty()) {
-            // Si la BD está vacía, cargamos los datos de prueba y los persistimos
-            movimientos.addAll(DatosPrueba.movimientosDePrueba)
-            DatosPrueba.movimientosDePrueba.forEach { db.guardarMovimiento(it) }
-        } else {
-            movimientos.addAll(movimientosGuardados)
-        }
-        cargarNivelesDesdeDB(db)
-        recalcularAlertas()
+        alertas.clear()
     }
 
-    /** Aplica sobre los silos de prueba los niveles que se guardaron en la BD. */
-    private fun cargarNivelesDesdeDB(db: LocalDatabaseManager) {
-        val niveles = db.obtenerNivelesSilos()
-        if (niveles.isEmpty()) return
-        for (i in granjas.indices) {
-            val granja = granjas[i]
-            val silosActualizados = granja.silos.map { silo ->
-                niveles[silo.id]?.let { silo.copy(porcentaje = it) } ?: silo
+    /** GET ms-silos /api/granjas (incluye los silos de cada granja). */
+    suspend fun cargarGranjas(): Resultado<Unit> =
+        when (val r = llamarApi { silosApi.granjas() }) {
+            is Resultado.Ok -> {
+                granjas.clear()
+                granjas.addAll(r.data.map { it.toModel() })
+                recalcularAlertas()
+                Resultado.Ok(Unit)
             }
-            granjas[i] = granja.copy(silos = silosActualizados)
+            is Resultado.Error -> r
         }
-    }
 
-    // ── Operaciones ──────────────────────────────────────────────────────
+    /** GET ms-movimientos /api/movimientos. Llamar después de cargarGranjas() para tener nombres. */
+    suspend fun cargarMovimientos(siloId: String? = null): Resultado<Unit> =
+        when (val r = llamarApi { movimientosApi.listar(siloId) }) {
+            is Resultado.Ok -> {
+                movimientos.clear()
+                movimientos.addAll(r.data.map { m ->
+                    val encontrado = obtenerSilo(m.siloId)
+                    m.toModel(
+                        siloNombre = encontrado?.second?.nombre ?: "Silo desconocido",
+                        granjaNombre = encontrado?.first?.nombre ?: "-"
+                    )
+                })
+                Resultado.Ok(Unit)
+            }
+            is Resultado.Error -> r
+        }
 
     fun obtenerSilo(siloId: String): Pair<Granja, Silo>? {
         for (g in granjas) {
@@ -66,64 +74,35 @@ object SilosRepository {
         return null
     }
 
-    fun registrarMovimiento(
-        context: Context?,
+    /**
+     * Un movimiento requiere DOS microservicios (no se llaman entre sí):
+     * 1) ms-silos actualiza el stock y valida capacidad/disponibilidad.
+     * 2) ms-movimientos guarda el historial.
+     * Si el paso 2 falla, se revierte el paso 1 con un ajuste inverso (compensación).
+     */
+    suspend fun registrarMovimiento(
         siloId: String,
         tipo: TipoMovimiento,
         cantidadTn: Int,
-        responsable: String,
         notas: String
-    ): Boolean {
-        var realizado = false
-        for (i in granjas.indices) {
-            val granja = granjas[i]
-            val indexSilo = granja.silos.indexOfFirst { it.id == siloId }
-            if (indexSilo != -1) {
-                val siloActual = granja.silos[indexSilo]
-                val toneladasActuales = (siloActual.porcentaje * siloActual.capacidadToneladas) / 100
-                if (tipo == TipoMovimiento.SALIDA && cantidadTn > toneladasActuales) return false
-                if (tipo == TipoMovimiento.ENTRADA && toneladasActuales + cantidadTn > siloActual.capacidadToneladas) return false
-                val nuevasToneladas = if (tipo == TipoMovimiento.ENTRADA) {
-                    toneladasActuales + cantidadTn
-                } else {
-                    toneladasActuales - cantidadTn
-                }
-                val nuevoPorcentaje = ((nuevasToneladas.toFloat() / siloActual.capacidadToneladas) * 100).toInt()
+    ): Resultado<Unit> {
+        val kg = cantidadTn * 1000.0
 
-                val siloActualizado = siloActual.copy(porcentaje = nuevoPorcentaje)
-                val nuevosSilos = granja.silos.toMutableList().apply {
-                    set(indexSilo, siloActualizado)
-                }
-                granjas[i] = granja.copy(silos = nuevosSilos)
+        val ajuste = llamarApi { silosApi.ajustar(siloId, AjusteSiloRequest(tipo.name, kg)) }
+        if (ajuste is Resultado.Error) return ajuste
 
-                val nuevoMovimiento = Movimiento(
-                    id = UUID.randomUUID().toString(),
-                    siloId = siloId,
-                    siloNombre = siloActual.nombre,
-                    granjaNombre = granja.nombre,
-                    tipo = tipo,
-                    cantidadToneladas = cantidadTn,
-                    fechaHora = LocalDateTime.now(),
-                    responsable = responsable,
-                    notas = notas
-                )
-
-                // Persistir en SQLite: el movimiento y el nuevo nivel del silo
-                context?.let {
-                    val db = LocalDatabaseManager.getInstance(it)
-                    db.guardarMovimiento(nuevoMovimiento)
-                    db.guardarNivelSilo(siloId, nuevoPorcentaje)
-                }
-
-                // Actualizar lista en memoria (reactiva)
-                movimientos.add(0, nuevoMovimiento)
-
-                recalcularAlertas()
-                realizado = true
-                break
-            }
+        val historial = llamarApi {
+            movimientosApi.registrar(MovimientoApiRequest(siloId, tipo.name, kg, notas.trim().ifBlank { null }))
         }
-        return realizado
+        if (historial is Resultado.Error) {
+            val inverso = if (tipo == TipoMovimiento.ENTRADA) TipoMovimiento.SALIDA else TipoMovimiento.ENTRADA
+            llamarApi { silosApi.ajustar(siloId, AjusteSiloRequest(inverso.name, kg)) }
+            return Resultado.Error("No se pudo guardar el historial; el stock se revirtió. ${historial.mensaje}")
+        }
+
+        cargarGranjas()
+        cargarMovimientos()
+        return Resultado.Ok(Unit)
     }
 
     fun recalcularAlertas() {
