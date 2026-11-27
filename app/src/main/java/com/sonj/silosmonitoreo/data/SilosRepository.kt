@@ -17,6 +17,8 @@ import com.sonj.silosmonitoreo.model.Movimiento
 import com.sonj.silosmonitoreo.model.Silo
 import com.sonj.silosmonitoreo.model.TipoMovimiento
 import java.util.UUID
+import retrofit2.Response
+import com.sonj.silosmonitoreo.data.api.SiloApiRequest
 
 object SilosRepository {
 
@@ -105,6 +107,45 @@ object SilosRepository {
         return Resultado.Ok(Unit)
     }
 
+    /** POST ms-silos /api/silos (solo administrador). */
+    suspend fun crearSilo(
+        nombre: String,
+        producto: String,
+        capacidadTn: Int,
+        toneladasActuales: Int,
+        granjaId: String
+    ): Resultado<Unit> = ejecutarYRecargar {
+        silosApi.crearSilo(
+            SiloApiRequest(nombre.trim(), producto.trim(), capacidadTn.toDouble(), toneladasActuales.toDouble(), granjaId)
+        )
+    }
+
+    /** PUT ms-silos /api/silos/{id} (solo administrador). */
+    suspend fun actualizarSilo(
+        id: String,
+        nombre: String,
+        producto: String,
+        capacidadTn: Int,
+        toneladasActuales: Int,
+        granjaId: String
+    ): Resultado<Unit> = ejecutarYRecargar {
+        silosApi.actualizarSilo(
+            id,
+            SiloApiRequest(nombre.trim(), producto.trim(), capacidadTn.toDouble(), toneladasActuales.toDouble(), granjaId)
+        )
+    }
+
+    /** DELETE ms-silos /api/silos/{id} (borrado logico, solo administrador). */
+    suspend fun eliminarSilo(id: String): Resultado<Unit> =
+        ejecutarYRecargar { silosApi.eliminarSilo(id) }
+
+    /** Ejecuta la llamada y, si salio bien, vuelve a cargar las granjas para refrescar la lista. */
+    private suspend fun <T> ejecutarYRecargar(llamada: suspend () -> Response<T>): Resultado<Unit> {
+        val r = llamarApi(llamada)
+        if (r is Resultado.Error) return r
+        cargarGranjas()
+        return Resultado.Ok(Unit)
+    }
     fun recalcularAlertas() {
         alertas.clear()
         for (granja in granjas) {

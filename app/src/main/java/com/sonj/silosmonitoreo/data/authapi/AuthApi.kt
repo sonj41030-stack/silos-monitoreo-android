@@ -1,5 +1,6 @@
 package com.sonj.silosmonitoreo.data.authapi
 
+import com.sonj.silosmonitoreo.data.api.TokenStore
 import okhttp3.OkHttpClient
 import retrofit2.Response
 import retrofit2.Retrofit
@@ -26,6 +27,7 @@ data class AuthRegistroRequest(
     val nombre: String,
     val email: String,
     val contrasena: String,
+    val fechaNacimiento: String, // yyyy-MM-dd
     val rol: String
 )
 
@@ -40,14 +42,18 @@ interface AuthApiService {
     @POST("api/auth/login")
     suspend fun login(@Body request: AuthLoginRequest): Response<AuthLoginResponse>
 
-    @POST("api/auth/registro")
-    suspend fun registro(@Body request: AuthRegistroRequest): Response<AuthUsuarioResponse>
+    @POST("api/auth/register")
+    suspend fun registro(@Body request: AuthRegistroRequest): Response<AuthLoginResponse>
 }
 
-/** Token JWT de la sesion actual. */
+/** Token JWT de la sesion actual. Tambien lo copia a TokenStore, que usa el interceptor. */
 object AuthSession {
     @Volatile
     var token: String? = null
+        set(value) {
+            field = value
+            TokenStore.token = value
+        }
 
     fun limpiar() {
         token = null

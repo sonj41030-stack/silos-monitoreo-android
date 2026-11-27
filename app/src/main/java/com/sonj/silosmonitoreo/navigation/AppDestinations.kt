@@ -14,5 +14,5 @@ object AppDestinations {
     const val PERFIL = "perfil"
     const val CONFIGURACION = "configuracion"
     const val CHAT_OPERATIVO = "chat_operativo"
+    const val FORMULARIO_SILO = "formulario_silo"
 }
-

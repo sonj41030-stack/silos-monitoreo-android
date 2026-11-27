@@ -21,6 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
@@ -57,7 +58,8 @@ fun DetalleSiloScreen(
     rol: RolUsuario = RolUsuario.OPERADOR,
     onVolver: () -> Unit,
     onRegistrarMovimiento: (String) -> Unit,
-    onVerHistorialSilo: (String) -> Unit
+    onVerHistorialSilo: (String) -> Unit,
+    onEditarSilo: (String) -> Unit = {}
 ) {
     val granjaYSilo = SilosRepository.obtenerSilo(siloId)
     val granja = granjaYSilo?.first
@@ -431,6 +433,22 @@ fun DetalleSiloScreen(
                         }
                     }
                     Spacer(modifier = Modifier.height(20.dp))
+                }
+
+                // Solo el administrador puede editar o eliminar el silo
+                if (rol == RolUsuario.ADMINISTRADOR) {
+                    OutlinedButton(
+                        onClick = { onEditarSilo(silo.id) },
+                        shape = RoundedCornerShape(50),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.Edit, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Editar / Eliminar silo")
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
                 }
 
                 // Acciones estrictas por rol: solo Operador y Administrador pueden registrar movimientos

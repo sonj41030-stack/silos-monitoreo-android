@@ -1,7 +1,12 @@
 package com.sonj.silosmonitoreo.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.sonj.silosmonitoreo.data.Clima
+import com.sonj.silosmonitoreo.data.ClimaRepository
 import com.sonj.silosmonitoreo.data.SilosRepository
+import com.sonj.silosmonitoreo.data.api.Resultado
+import kotlinx.coroutines.launch
 import com.sonj.silosmonitoreo.model.EstadoSilo
 import com.sonj.silosmonitoreo.model.Granja
 import com.sonj.silosmonitoreo.model.RolUsuario
@@ -59,6 +64,14 @@ class ListaSilosViewModel : ViewModel() {
     // Expone las granjas directamente desde el Repository (reactivas con mutableStateListOf)
     val granjas get() = SilosRepository.granjas
     val alertas get() = SilosRepository.alertas
+
+    // API externa (Open-Meteo): null = cargando
+    private val _clima = MutableStateFlow<Resultado<Clima>?>(null)
+    val clima: StateFlow<Resultado<Clima>?> = _clima.asStateFlow()
+
+    fun cargarClima() {
+        viewModelScope.launch { _clima.value = ClimaRepository.obtener() }
+    }
 
     fun inicializarRol(rol: RolUsuario) {
         _uiState.update { it.copy(rol = rol) }
