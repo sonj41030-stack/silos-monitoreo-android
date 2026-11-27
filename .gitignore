@@ -16,6 +16,4 @@ local.properties
 
 .idea/
 
-*.apk
-
 build.log
