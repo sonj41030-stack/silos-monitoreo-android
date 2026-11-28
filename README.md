@@ -1,172 +1,93 @@
-# 🌾 Silos Monitoreo
+# Silos Monitoreo (App Android)
 
-Aplicación Android para **monitorear el alimento almacenado en silos**: consulta de niveles, alertas por estado, registro de movimientos (entradas y salidas) e historial. Los datos se conservan al cerrar la app. Desarrollada como proyecto de la asignatura **DSY1105**.
+App Android para monitorear el alimento almacenado en silos: niveles, alertas por estado, registro de movimientos (entradas y salidas), historial y CRUD de silos. Kotlin + Jetpack Compose + MVVM, conectada a microservicios Spring Boot propios y a una API externa de clima. Proyecto de la asignatura DSY1105.
 
-![Kotlin](https://img.shields.io/badge/Kotlin-Android-7F52FF?logo=kotlin&logoColor=white)
-![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-UI-4285F4?logo=jetpackcompose&logoColor=white)
-![SQLite](https://img.shields.io/badge/SQLite-local-003B57?logo=sqlite&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-build-2496ED?logo=docker&logoColor=white)
+Repositorio del backend (microservicios): https://github.com/sonj41030-stack/silos-monitoreo-backend
 
----
+## Integrantes
 
-## 📋 Contenido
+- Edixon Cabriles (sonj41030-stack). Proyecto desarrollado de forma individual, con conocimiento del docente.
 
-- [Funcionalidades](#-funcionalidades)
-- [Tecnologías](#-tecnologías)
-- [Usuarios de prueba](#-usuarios-de-prueba)
-- [Datos de ejemplo](#-datos-de-ejemplo)
-- [Cómo compilar la app](#-cómo-compilar-la-app)
-  - [Opción A: con Android Studio](#opción-a-con-android-studio)
-  - [Opción B: con Docker](#opción-b-con-docker)
-- [Pruebas unitarias](#-pruebas-unitarias)
-- [Estructura del proyecto](#-estructura-del-proyecto)
-- [Autor](#-autor)
+## Funcionalidades
 
----
-
-## ✨ Funcionalidades
-
-| Módulo | Qué hace |
+| Modulo | Que hace |
 |---|---|
-| **Inicio de sesión** | Acceso por correo y contraseña, con validación de formato de correo. |
-| **Roles** | Perfiles *Operador*, *Administrador* y *Jefatura*, cada uno con sus permisos. |
-| **Niveles de silos** | Muestra el nivel actual de cada silo, agrupado por granja o planta. |
-| **Alertas** | Calcula el estado de cada silo (normal, advertencia, crítico) según su nivel. |
-| **Movimientos** | Registro de entradas y salidas de alimento. |
-| **Validaciones** | Una salida no puede superar el stock disponible y una entrada no puede superar la capacidad del silo. |
-| **Historial** | Lista de todos los movimientos registrados. |
-| **Persistencia** | Los movimientos y el nivel de cada silo se guardan en SQLite y se conservan al cerrar la app. |
+| Inicio de sesion y registro | Login con JWT contra ms-auth. Registro con fecha de nacimiento (mayores de 18). |
+| Roles | Operador, Administrador y Jefatura, cada uno con su vista y permisos. |
+| Niveles y alertas | Lista de granjas y silos con nivel, estado (normal, advertencia, critico) y centro de alertas. |
+| CRUD de silos | Solo Administrador: crear, editar y eliminar (borrado logico) con validaciones de formulario. |
+| Movimientos | Entradas y salidas que ajustan el nivel del silo (ms-silos) y se guardan en el historial (ms-movimientos). |
+| Historial | Lista y filtros por tipo de movimiento. |
+| Clima ambiente | Tarjeta con temperatura y humedad desde una API externa (Open-Meteo). |
+| Dashboard Jefatura | Resumen ejecutivo y ocupacion global. |
 
----
+## Endpoints utilizados
 
-## 🛠 Tecnologías
+### API externa (Retrofit, sin JWT, HTTPS)
 
-- **Lenguaje:** Kotlin
-- **Interfaz:** Jetpack Compose
-- **Arquitectura:** MVVM (Model – View – ViewModel)
-- **Base de datos local:** SQLite (tablas `usuarios`, `movimientos` y `niveles_silos`)
-- **Compilación:** Gradle (Kotlin DSL)
-- **Entorno reproducible:** Docker
-- **Pruebas:** JUnit (pruebas unitarias)
-
----
-
-## 👤 Usuarios de prueba
-
-Cuentas de demostración para probar la app:
-
-| Rol | Correo | Contraseña |
+| Metodo | URL | Uso |
 |---|---|---|
-| Operador | `operador@silos.com` | `operador123` |
-| Administrador | `admin@silos.com` | `admin123` |
-| Jefatura | `jefe@silos.com` | `jefe123` |
+| GET | https://api.open-meteo.com/v1/forecast?latitude=-33.45&longitude=-70.66&current=temperature_2m,relative_humidity_2m | Clima mostrado en la lista de silos |
 
-> ⚠️ Son credenciales de **prueba**, solo para desarrollo y demostración.
+### Microservicios propios (JWT en `Authorization: Bearer <token>`)
 
----
+| Servicio | Puerto | Metodo y ruta |
+|---|---|---|
+| ms-auth | 8081 | POST /api/auth/login, POST /api/auth/register, GET /api/auth/me |
+| ms-silos | 8082 | GET /api/granjas, POST /api/silos, PUT /api/silos/{id}, DELETE /api/silos/{id}, POST /api/silos/{id}/movimientos |
+| ms-movimientos | 8083 | POST /api/movimientos, GET /api/movimientos?siloId= |
 
-## 🗂 Datos de ejemplo
+El detalle completo de cada endpoint esta en el README del backend.
 
-La app incluye datos iniciales de ejemplo: 3 granjas o plantas con 7 silos (maíz, soya, trigo, girasol, cebada, sorgo y maíz blanco) y algunos movimientos de muestra. Al registrar movimientos, el nivel del silo cambia y queda guardado.
+## Usuarios de prueba
 
----
+| Rol | Correo | Contrasena |
+|---|---|---|
+| Operador | operador@silos.com | operador123 |
+| Administrador | admin@silos.com | admin123 |
+| Jefatura | jefe@silos.com | jefe123 |
 
-## 🚀 Cómo compilar la app
+Credenciales de prueba, solo para desarrollo y evaluacion.
 
-### Opción A: con Android Studio
+## Pasos para ejecutar
 
-No necesitas Docker. Solo Android Studio y conexión a internet la primera vez.
+Requisitos: Android Studio, JDK 17 o superior, Docker Desktop.
 
-1. En la pantalla de inicio, presiona **Clone Repository** (o **File → New → Project from Version Control**).
-2. Pega la URL:
-   ```
-   https://github.com/sonj41030-stack/silos-monitoreo-android.git
-   ```
-3. Espera a que termine la sincronización de Gradle (acepta instalar el SDK de Android si lo pide).
-4. Conecta un celular o inicia un emulador y presiona **Run ▶**.
-5. Para generar el APK: **Build → Build APK(s)**.
+1. Clonar el backend y levantar la base de datos y los servicios (ver README del backend):
+   - `docker compose up -d`
+   - ms-auth: `cd ms-auth` y `.\mvnw spring-boot:run`
+   - ms-silos: `cd ms-silos` y `.\gradlew.bat bootRun`
+   - ms-movimientos: `cd ms-movimientos` y `.\gradlew.bat bootRun`
+2. Clonar esta app: `git clone https://github.com/sonj41030-stack/silos-monitoreo-android.git`
+3. Abrir la carpeta en Android Studio (File > Open), esperar el Gradle Sync y ejecutar en un emulador con Run. El emulador accede al PC por `10.0.2.2`.
+4. O instalar el APK firmado directamente: `adb install -r release\silos-monitoreo.apk`
 
-Si ya tienes la carpeta en tu PC, usa **File → Open** y selecciona la carpeta raíz del proyecto (la que contiene `gradlew`).
+## APK firmado y llave (.jks)
 
-### Opción B: con Docker
+- APK firmado: `release/silos-monitoreo.apk`
+- Llave: `keystore/silos-release.jks` (alias `silos`, contrasena `silos2026`, solo para esta evaluacion)
+- Configuracion: `keystore.properties` y bloque `signingConfigs` en `app/build.gradle.kts`
+- Generar: `.\gradlew.bat assembleRelease`
 
-Sirve para generar el APK sin instalar Android Studio, el SDK ni Java: Docker trae todo.
+Captura de la llave (keytool):
 
-**Requisitos:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) instalado y **abierto**.
+![keytool](docs/capturas/keytool.png)
 
-```bash
-# 1. Clonar el repositorio
-git clone https://github.com/sonj41030-stack/silos-monitoreo-android.git
+Verificacion de la firma del APK (apksigner):
 
-# 2. Entrar a la carpeta del proyecto
-cd silos-monitoreo-android
+![apksigner](docs/capturas/apksigner.png)
 
-# 3. Construir la imagen (ejecuta los tests y compila el APK)
-docker build -t silos-apk .
+Llave dentro del repositorio:
 
-# 4. Sacar el APK del contenedor
-docker create --name silos-temp silos-apk
-docker cp silos-temp:/app/app/build/outputs/apk/debug/app-debug.apk .
-docker rm silos-temp
-```
+![keystore](docs/capturas/keystore.png)
 
-Al terminar tendrás `app-debug.apk` en tu carpeta, listo para instalar en un celular Android.
+## Pruebas unitarias
 
-> ⏱ La primera construcción tarda varios minutos porque descarga el SDK de Android. Si un test falla, el build se detiene y no entrega el APK.
+JUnit + MockK + coroutines-test sobre Repository, ViewModels, validadores y mappers. Cobertura con JaCoCo: 95 % de instrucciones y 81 % de ramas.
 
-> 💡 La app Android no corre dentro de Docker: Docker solo **compila** el APK, que luego se instala en el celular.
 
----
 
-## 🧪 Pruebas unitarias
 
-Las pruebas verifican la lógica de la app: validaciones de stock y capacidad, cálculo de estados y alertas, registro de movimientos, roles, y validación de correo y edad.
+El reporte queda en `app/build/reports/jacoco/jacocoTestReport/html/index.html`.
 
-**Con Docker:** se ejecutan automáticamente durante `docker build`.
-
-**Con Gradle:**
-
-```bash
-./gradlew testDebugUnitTest
-```
-
-En Windows (PowerShell): `.\gradlew testDebugUnitTest`
-
-> Las pruebas cubren la lógica, no las pantallas, la navegación ni la base de datos. Para eso, prueba la app en un dispositivo.
-
----
-
-## 📁 Estructura del proyecto
-
-```
-silos-monitoreo-android/
-├── app/
-│   └── src/
-│       ├── main/java/com/sonj/silosmonitoreo/
-│       │   ├── data/
-│       │   │   ├── api/       # Cliente y servicio de API
-│       │   │   ├── auth/      # Autenticación y validación de cuentas
-│       │   │   ├── db/        # SQLite (LocalDatabaseManager)
-│       │   │   ├── DatosPrueba.kt
-│       │   │   └── SilosRepository.kt
-│       │   ├── model/         # Modelos (Silo, Granja, Movimiento, ...)
-│       │   ├── navigation/    # Rutas de la app
-│       │   ├── ui/            # Pantallas, componentes, tema y ViewModels
-│       │   └── MainActivity.kt
-│       └── test/              # Pruebas unitarias
-├── gradle/                    # Configuración del wrapper de Gradle
-├── Dockerfile                 # Receta para compilar el APK en Docker
-├── .dockerignore              # Archivos que Docker no copia al contenedor
-├── .gitattributes             # Mantiene gradlew con saltos de línea de Linux
-├── build.gradle.kts           # Configuración de Gradle
-├── settings.gradle.kts
-└── README.md
-```
-
----
-
-## 👨‍💻 Autor
-
-**Edixon Cabriles** · [@sonj41030-stack](https://github.com/sonj41030-stack)
-
-Proyecto 
+## Estructura
