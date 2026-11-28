@@ -85,9 +85,19 @@ Llave dentro del repositorio:
 
 JUnit + MockK + coroutines-test sobre Repository, ViewModels, validadores y mappers. Cobertura con JaCoCo: 95 % de instrucciones y 81 % de ramas.
 
+Comando:
 
+    .\gradlew.bat testDebugUnitTest jacocoTestReport
 
-
-El reporte queda en `app/build/reports/jacoco/jacocoTestReport/html/index.html`.
+El reporte queda en app/build/reports/jacoco/jacocoTestReport/html/index.html
 
 ## Estructura
+
+    app/src/main/java/com/sonj/silosmonitoreo/
+      data/        Repositorios, Retrofit (api, authapi) y autenticacion
+      model/       Silo, Granja, Movimiento, Usuario
+      navigation/  Rutas
+      ui/          Pantallas, componentes, tema y ViewModels
+    app/src/test/  Pruebas unitarias
+    keystore/      Llave de firma (.jks)
+    release/       APK firmado
